@@ -1,0 +1,253 @@
+_format_version: "3.0"
+services:
+- connect_timeout: 60000
+  host: petstore3.swagger.io
+  id: aa44db31-8600-530d-bc7a-346b9e620e09
+  name: swagger-petstore-openapi-3-0
+  path: /api/v3
+  plugins:
+  - config:
+      bandwidth_metrics: true
+      latency_metrics: true
+      per_consumer: false
+      status_code_metrics: true
+      upstream_health_metrics: true
+    id: 1f2b17a2-e01a-5f7a-9f3c-76c9d567c1fc
+    name: prometheus
+    tags: []
+  port: 443
+  protocol: https
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - id: fff97dd8-0145-5fa0-808b-84b4853b1086
+    methods:
+    - POST
+    name: swagger-petstore-openapi-3-0_addpet
+    path_handling: v1
+    paths:
+    - ~/pet$
+    plugins: []
+    preserve_host: false
+    regex_priority: 200
+    strip_path: false
+    tags: []
+  - id: bf533848-b8c1-5bda-8f70-5cd8fa9aecf2
+    methods:
+    - PUT
+    name: swagger-petstore-openapi-3-0_updatepet
+    path_handling: v1
+    paths:
+    - ~/pet$
+    plugins: []
+    preserve_host: false
+    regex_priority: 200
+    strip_path: false
+    tags: []
+  - id: 25e4c57d-6a19-58d3-9af4-090bf3315470
+    methods:
+    - GET
+    name: swagger-petstore-openapi-3-0_findpetsbystatus
+    path_handling: v1
+    paths:
+    - ~/pet/findByStatus$
+    plugins: []
+    preserve_host: false
+    regex_priority: 200
+    strip_path: false
+    tags: []
+  - id: 5396f2d5-fa7d-51a6-9fb9-6d19c87106b5
+    methods:
+    - GET
+    name: swagger-petstore-openapi-3-0_findpetsbytags
+    path_handling: v1
+    paths:
+    - ~/pet/findByTags$
+    plugins: []
+    preserve_host: false
+    regex_priority: 200
+    strip_path: false
+    tags: []
+  - id: 1cf825f3-0cb2-57b4-bb83-7474b733928e
+    methods:
+    - DELETE
+    name: swagger-petstore-openapi-3-0_deletepet
+    path_handling: v1
+    paths:
+    - ~/pet/(?<petid>[^#?/]+)$
+    plugins: []
+    preserve_host: false
+    regex_priority: 100
+    strip_path: false
+    tags: []
+  - id: d2aced75-fd5b-551d-bb5e-729629fc5922
+    methods:
+    - GET
+    name: swagger-petstore-openapi-3-0_getpetbyid
+    path_handling: v1
+    paths:
+    - ~/pet/(?<petid>[^#?/]+)$
+    plugins: []
+    preserve_host: false
+    regex_priority: 100
+    strip_path: false
+    tags: []
+  - id: 60078157-98f4-5acd-ae07-c0c1ce827267
+    methods:
+    - POST
+    name: swagger-petstore-openapi-3-0_updatepetwithform
+    path_handling: v1
+    paths:
+    - ~/pet/(?<petid>[^#?/]+)$
+    plugins: []
+    preserve_host: false
+    regex_priority: 100
+    strip_path: false
+    tags: []
+  - id: 7dd9131c-b271-5b36-b770-12708129c8a9
+    methods:
+    - POST
+    name: swagger-petstore-openapi-3-0_uploadfile
+    path_handling: v1
+    paths:
+    - ~/pet/(?<petid>[^#?/]+)/uploadImage$
+    plugins: []
+    preserve_host: false
+    regex_priority: 100
+    strip_path: false
+    tags: []
+  - id: 7197e2f1-ef56-5d84-8d69-5ec857d2fcaa
+    methods:
+    - GET
+    name: swagger-petstore-openapi-3-0_getinventory
+    path_handling: v1
+    paths:
+    - ~/store/inventory$
+    plugins: []
+    preserve_host: false
+    regex_priority: 200
+    strip_path: false
+    tags: []
+  - id: ff8cfea7-a336-57f3-ae8e-80dcf97c94c8
+    methods:
+    - POST
+    name: swagger-petstore-openapi-3-0_placeorder
+    path_handling: v1
+    paths:
+    - ~/store/order$
+    plugins: []
+    preserve_host: false
+    regex_priority: 200
+    strip_path: false
+    tags: []
+  - id: 2841c925-c6f2-5749-abe1-41efbafd4bf1
+    methods:
+    - DELETE
+    name: swagger-petstore-openapi-3-0_deleteorder
+    path_handling: v1
+    paths:
+    - ~/store/order/(?<orderid>[^#?/]+)$
+    plugins: []
+    preserve_host: false
+    regex_priority: 100
+    strip_path: false
+    tags: []
+  - id: 14da18fd-e67c-5d59-9d74-cbeaa676724e
+    methods:
+    - GET
+    name: swagger-petstore-openapi-3-0_getorderbyid
+    path_handling: v1
+    paths:
+    - ~/store/order/(?<orderid>[^#?/]+)$
+    plugins: []
+    preserve_host: false
+    regex_priority: 100
+    strip_path: false
+    tags: []
+  - id: 82e25559-fbd8-519a-87b4-6495a344a466
+    methods:
+    - POST
+    name: swagger-petstore-openapi-3-0_createuser
+    path_handling: v1
+    paths:
+    - ~/user$
+    plugins: []
+    preserve_host: false
+    regex_priority: 200
+    strip_path: false
+    tags: []
+  - id: 89fcd748-402b-56d7-84f8-0fe94c2ede1d
+    methods:
+    - POST
+    name: swagger-petstore-openapi-3-0_createuserswithlistinput
+    path_handling: v1
+    paths:
+    - ~/user/createWithList$
+    plugins: []
+    preserve_host: false
+    regex_priority: 200
+    strip_path: false
+    tags: []
+  - id: fb2c6669-efb5-5e5b-9587-f2f35a9c1837
+    methods:
+    - GET
+    name: swagger-petstore-openapi-3-0_loginuser
+    path_handling: v1
+    paths:
+    - ~/user/login$
+    plugins: []
+    preserve_host: false
+    regex_priority: 200
+    strip_path: false
+    tags: []
+  - id: b8fe0646-2488-5d76-8bb3-9ee932462d10
+    methods:
+    - GET
+    name: swagger-petstore-openapi-3-0_logoutuser
+    path_handling: v1
+    paths:
+    - ~/user/logout$
+    plugins: []
+    preserve_host: false
+    regex_priority: 200
+    strip_path: false
+    tags: []
+  - id: fa3d87ed-935f-542e-84b7-74d69878b42b
+    methods:
+    - DELETE
+    name: swagger-petstore-openapi-3-0_deleteuser
+    path_handling: v1
+    paths:
+    - ~/user/(?<username>[^#?/]+)$
+    plugins: []
+    preserve_host: false
+    regex_priority: 100
+    strip_path: false
+    tags: []
+  - id: bb488719-87be-58a5-8382-bc18a1f861eb
+    methods:
+    - GET
+    name: swagger-petstore-openapi-3-0_getuserbyname
+    path_handling: v1
+    paths:
+    - ~/user/(?<username>[^#?/]+)$
+    plugins: []
+    preserve_host: false
+    regex_priority: 100
+    strip_path: false
+    tags: []
+  - id: 1ecf5032-4501-5294-8d27-89374e128984
+    methods:
+    - PUT
+    name: swagger-petstore-openapi-3-0_updateuser
+    path_handling: v1
+    paths:
+    - ~/user/(?<username>[^#?/]+)$
+    plugins: []
+    preserve_host: false
+    regex_priority: 100
+    strip_path: false
+    tags: []
+  tags: []
+  write_timeout: 60000
+upstreams: []
