@@ -1,51 +1,75 @@
-# Kong Application Configurations
+# Kong Configuration as Code (SSoT)
 
-このディレクトリには、Kong アプリケーションの設定ファイルを格納します。
+このディレクトリは Kong Gateway の設定の **Single Source of Truth (SSoT)** です。
 
-## 想定される設定
+## 📁 ファイル構成
 
-### Routes (ルート設定)
+```
+kong/configs/
+├── kong.yaml          # Konnectの全設定（Services, Routes, Plugins）
+└── README.md          # このファイル
+```
 
-- `routes/` - Kong Gateway のルート定義
-- HTTP リクエストのルーティングルール
+## 🔄 ワークフロー
 
-### Services (サービス設定)
+### 1. Konnect から設定をエクスポート（初回/定期的）
 
-- `services/` - バックエンドサービスの定義
-- アップストリームサービスへの接続設定
+```bash
+# 環境変数の設定
+export KONNECT_TOKEN='your-personal-access-token'
+export KONNECT_CONTROL_PLANE_NAME='your-control-plane-name'
 
-### Plugins (プラグイン設定)
+# エクスポート実行
+./scripts/export-konnect-config.sh
+```
 
-- `plugins/` - Kong プラグインの設定
-- 認証、レート制限、ログ記録などの機能
+**Personal Access Token の取得:**
 
-### Upstreams (アップストリーム設定)
+1. https://cloud.konghq.com/ にアクセス
+2. 右上のアイコン → Personal Access Tokens
+3. 'Generate Token' をクリック
 
-- `upstreams/` - ロードバランシング設定
-- バックエンドターゲットのグループ化
+**Control Plane 名の取得:**
 
-## 設定方法
+1. Konnect UI → Gateway Manager
+2. 使用している Control Plane の名前を確認（例: `default`, `production` など）
 
-Kong Konnect を使用する場合、これらの設定は Konnect Control Plane (CP)から管理されます。
+### 2. 設定の編集
 
-ローカルでの設定適用には以下の方法があります:
+```bash
+# kong.yaml を直接編集
+vim kong/configs/kong.yaml
+```
 
-1. **Konnect UI** (推奨)
+**編集可能な要素:**
 
-   - Konnect CP の Web UI から設定を管理
+- Services: バックエンドサービスの定義
+- Routes: ルーティングルール
+- Plugins: 機能拡張（認証、レート制限、メトリクスなど）
 
-2. **decK** (Configuration as Code)
+### 3. Konnect へ設定を同期
 
-   ```bash
-   # deck.yamlファイルを使用した設定同期
-   deck sync --konnect-token <your-token>
-   ```
+```bash
+# Dry-run（変更内容の確認）
+deck gateway diff \
+  --konnect-token "$KONNECT_TOKEN" \
+  --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
+  --state kong/configs/kong.yaml
 
-3. **Kong Admin API**
-   ```bash
-   # Admin APIを使用した設定 (CPモードでは非推奨)
-   # Data Planeのみのモードでは使用不可
-   ```
+# 実際に適用
+deck gateway sync \
+  --konnect-token "$KONNECT_TOKEN" \
+  --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
+  --state kong/configs/kong.yaml
+```
+
+## 🎯 SSoT 運用のメリット
+
+1. **バージョン管理**: Git で設定変更を追跡
+2. **レビュー**: Pull Request で変更をレビュー
+3. **ロールバック**: 過去の設定に簡単に戻せる
+4. **再現性**: 環境を簡単に複製可能
+5. **ドキュメント**: 設定がコードとして文書化される
 
 ## 注意事項
 
