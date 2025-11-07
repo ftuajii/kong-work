@@ -7,9 +7,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "🚀 Kong Konnect環境のセットアップを開始します..."
+echo "   (クラスター基盤 + Kong DP + モニタリング)"
+echo ""
 
 # 1. kindクラスター作成
-echo ""
 echo "📦 Step 1/6: kindクラスターを作成中..."
 kind create cluster --name kong-k8s --config "$ROOT_DIR/infrastructure/kind-config.yaml"
 
@@ -18,6 +19,7 @@ echo ""
 echo "📦 Step 2/6: Helmリポジトリを追加中..."
 helm repo add kong https://charts.konghq.com 2>/dev/null || true
 helm repo add metallb https://metallb.github.io/metallb 2>/dev/null || true
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
 helm repo update
 
 # 3. MetalLBインストール
@@ -39,30 +41,33 @@ kubectl create secret tls kong-cluster-cert -n kong \
   --cert="$ROOT_DIR/kong/secrets/tls.crt" \
   --key="$ROOT_DIR/kong/secrets/tls.key"
 
-# 5. Kongイメージロード
+# 5. Kong DPデプロイ (個別スクリプト呼び出し)
 echo ""
-echo "📦 Step 5/6: Kongイメージをロード中..."
-docker pull ghcr.io/ftuajii/bookinfo/kong-gateway:3.10
-kind load docker-image ghcr.io/ftuajii/bookinfo/kong-gateway:3.10 --name kong-k8s
+echo "📦 Step 5/6: Kong DPをデプロイ中..."
+"$SCRIPT_DIR/start-kong.sh"
 
-# 6. Kongデプロイ
+# 6. モニタリングスタックデプロイ (個別スクリプト呼び出し)
 echo ""
-echo "📦 Step 6/6: Kongをデプロイ中..."
-helm install my-kong kong/kong -n kong --skip-crds --values "$ROOT_DIR/kong/values.yaml"
-
-echo ""
-echo "⏳ Kong Podの起動を待機中..."
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=kong -n kong --timeout=120s
+echo "📦 Step 6/6: モニタリングスタック(Prometheus + Grafana)をセットアップ中..."
+"$SCRIPT_DIR/setup-monitoring.sh"
 
 # 完了確認
 echo ""
-echo "✅ セットアップ完了!"
+echo "✅ 全体セットアップ完了!"
 echo ""
 echo "📊 デプロイ状況:"
-kubectl get pods -n kong
-kubectl get svc -n kong
+echo ""
+echo "【Kong DP】"
+kubectl get pods,svc -n kong
+echo ""
+echo "【モニタリング】"
+kubectl get pods -n monitoring
 
 echo ""
-echo "🌐 アクセス方法:"
-echo "  kubectl port-forward -n kong svc/my-kong-kong-proxy 8000:80"
-echo "  curl http://localhost:8000"
+echo "🌐 アクセス可能なサービス:"
+echo "  ✅ Kong Proxy:    http://localhost:8000"
+echo "  ✅ Grafana:       http://localhost:3000 (admin/admin)"
+echo "  ✅ Prometheus:    http://localhost:9090"
+echo ""
+echo "📝 ポートフォワードは各個別スクリプトで自動起動されています"
+echo "   停止: pkill -f port-forward"

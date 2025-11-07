@@ -1,0 +1,62 @@
+# kube-prometheus-stack values
+# Kind環境用の軽量設定
+
+# Grafana設定
+grafana:
+  adminPassword: "admin" # デフォルトパスワード (本番環境では変更必須)
+  service:
+    type: ClusterIP
+  persistence:
+    enabled: false # kindでは永続化無効
+
+# Prometheus設定
+prometheus:
+  prometheusSpec:
+    # Kong など全てのServiceMonitorを自動検出
+    serviceMonitorSelectorNilUsesHelmValues: false
+
+    # リソース制限 (kind用)
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+    # データ保持期間
+    retention: 7d
+
+    # ストレージ (kindでは永続化無効)
+    storageSpec: {}
+
+# Alertmanager設定
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+# Node Exporter (各ノードのメトリクス)
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# kube-state-metrics (Kubernetesリソースメトリクス)
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-kong-kong-metrics
+  namespace: kong
+  labels:
+    app.kubernetes.io/name: kong
+    app.kubernetes.io/instance: my-kong
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 8100
+      targetPort: 8100
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: kong
+    app.kubernetes.io/component: app
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kong-metrics
+  namespace: monitoring
+  labels:
+    app: kong
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kong
+      app.kubernetes.io/instance: my-kong
+  namespaceSelector:
+    matchNames:
+      - kong
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
