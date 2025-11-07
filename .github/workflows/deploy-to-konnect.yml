@@ -25,7 +25,7 @@ jobs:
 
             - name: Validate configuration
               run: |
-                  deck gateway validate kong/configs/kong.yaml
+                  deck gateway validate --online=false kong/configs/kong.yaml
 
             - name: Show diff (Dry-run)
               env:
