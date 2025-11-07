@@ -70,9 +70,25 @@ deck gateway sync \
 3. **ロールバック**: 過去の設定に簡単に戻せる
 4. **再現性**: 環境を簡単に複製可能
 5. **ドキュメント**: 設定がコードとして文書化される
+6. **自動デプロイ**: GitHub Actions で main ブランチへの push 時に自動デプロイ
+
+## 🚀 GitHub Actions による自動デプロイ
+
+### セットアップ
+
+1. **GitHub Secrets を設定** (リポジトリの Settings → Secrets and variables → Actions):
+
+   - `KONNECT_TOKEN`: Personal Access Token
+   - `KONNECT_CONTROL_PLANE_NAME`: Control Plane 名
+
+2. **ワークフロー**: `.github/workflows/deploy-to-konnect.yml`
+   - `kong/configs/kong.yaml` が main に push されると自動実行
+   - Validate → Diff → Sync の順で安全にデプロイ
+
+詳細は [.github/README.md](../../.github/README.md) を参照
 
 ## 注意事項
 
 - このプロジェクトは Konnect CP 接続用 Data Plane として構成されています
 - 設定は Konnect CP で管理することが推奨されます
-- このディレクトリは将来的な設定ファイルのバージョン管理用です
+- `deck gateway sync` は設定を**完全に上書き**するため、本番環境では必ず PR でレビュー
