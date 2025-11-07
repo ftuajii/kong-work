@@ -23,7 +23,7 @@ on:
 
 env:
     REGISTRY: ghcr.io
-    IMAGE_NAME: ${{ github.repository }}/kong-gateway
+    IMAGE_NAME: ftuajii/bookinfo/kong-gateway
 
 jobs:
     scan-kong-image:
