@@ -7,6 +7,7 @@ on:
         paths:
             - "kong/configs/kong.yaml"
             - ".github/workflows/deploy-to-konnect.yml"
+    workflow_dispatch:
 
 jobs:
     deploy:
@@ -32,7 +33,7 @@ jobs:
                   deck gateway diff \
                     --konnect-token "$KONNECT_TOKEN" \
                     --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
-                    --state kong/configs/kong.yaml || true
+                    kong/configs/kong.yaml || true
 
             - name: Deploy to Konnect
               env:
@@ -43,7 +44,7 @@ jobs:
                   deck gateway sync \
                     --konnect-token "$KONNECT_TOKEN" \
                     --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
-                    --state kong/configs/kong.yaml
+                    kong/configs/kong.yaml
 
             - name: Deployment success
               run: |
