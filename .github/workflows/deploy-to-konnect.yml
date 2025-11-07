@@ -5,6 +5,7 @@ on:
         branches:
             - main
         paths:
+            - "kong/specs/openapi.yaml"
             - "kong/configs/kong.yaml"
             - ".github/workflows/deploy-to-konnect.yml"
     workflow_dispatch:
@@ -24,6 +25,15 @@ jobs:
                   sudo mv /tmp/deck /usr/local/bin/
                   deck version
 
+            - name: Generate Kong config from OpenAPI
+              run: |
+                  echo "🔄 Generating Kong configuration from OpenAPI spec..."
+                  deck file openapi2kong \
+                    --spec kong/specs/openapi.yaml \
+                    --output-file kong/configs/petstore-kong.yaml \
+                    --format yaml
+                  echo "✅ Kong config generated successfully!"
+
             - name: Show diff (Dry-run)
               env:
                   KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
@@ -33,7 +43,7 @@ jobs:
                   deck gateway diff \
                     --konnect-token "$KONNECT_TOKEN" \
                     --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
-                    kong/configs/kong.yaml || true
+                    kong/configs/petstore-kong.yaml || true
 
             - name: Deploy to Konnect
               env:
@@ -44,7 +54,7 @@ jobs:
                   deck gateway sync \
                     --konnect-token "$KONNECT_TOKEN" \
                     --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
-                    kong/configs/kong.yaml
+                    kong/configs/petstore-kong.yaml
 
             - name: Deployment success
               run: |
