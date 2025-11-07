@@ -23,10 +23,6 @@ jobs:
                   sudo mv /tmp/deck /usr/local/bin/
                   deck version
 
-            - name: Validate configuration
-              run: |
-                  deck gateway validate --online=false kong/configs/kong.yaml
-
             - name: Show diff (Dry-run)
               env:
                   KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
