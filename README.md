@@ -654,3 +654,40 @@ kind クラスターの MetalLB IP (`172.21.255.200`) はホストから直接�
 kubectl port-forward -n kong svc/my-kong-kong-proxy 8000:80
 curl http://localhost:8000
 ```
+
+## API Spec 公開 (Dev Portal)
+
+Kong Konnect Dev Portal に API 仕様を公開する機能を提供しています。
+
+### クイックスタート
+
+```bash
+# 環境変数を設定
+export KONNECT_TOKEN='your-konnect-token'
+export API_PRODUCT_ID='your-api-product-id'
+export VERSION_ID='your-version-id'
+
+# API Specを公開
+./scripts/publish-api-spec.sh
+
+# Version も公開状態にする場合
+PUBLISH_VERSION=true ./scripts/publish-api-spec.sh
+```
+
+### GitHub Actions で自動公開
+
+1. GitHub Secrets を設定:
+
+   - `KONNECT_TOKEN`
+   - `API_PRODUCT_ID`
+   - `VERSION_ID`
+
+2. `kong/specs/openapi.yaml` を変更してプッシュすると自動的に公開されます
+
+3. 手動実行も可能: Actions → "Publish API Spec to Konnect Dev Portal" → Run workflow
+
+### 詳細ドキュメント
+
+詳細な使い方、トラブルシューティング、必要な情報の取得方法については、以下のドキュメントを参照してください:
+
+📚 **[API Spec 公開ガイド](docs/API_SPEC_PUBLISHING.md)**

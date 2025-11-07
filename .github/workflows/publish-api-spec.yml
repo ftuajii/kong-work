@@ -1,0 +1,78 @@
+name: Publish API Spec to Konnect Dev Portal
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - "kong/specs/openapi.yaml"
+    workflow_dispatch:
+        inputs:
+            publish_version:
+                description: "API Product Versionを公開状態にする"
+                required: false
+                default: "false"
+                type: choice
+                options:
+                    - "true"
+                    - "false"
+
+jobs:
+    publish-spec:
+        name: Publish API Specification
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Validate OpenAPI Spec
+              run: |
+                  # OpenAPI仕様の基本的な検証
+                  if [ ! -f "kong/specs/openapi.yaml" ]; then
+                    echo "❌ OpenAPI Specファイルが見つかりません"
+                    exit 1
+                  fi
+
+                  # YAMLの構文チェック (jqを使用)
+                  cat kong/specs/openapi.yaml | grep -q "openapi:" || {
+                    echo "❌ 有効なOpenAPI仕様ではありません"
+                    exit 1
+                  }
+
+                  echo "✅ OpenAPI Spec検証完了"
+
+            - name: Publish API Spec to Konnect
+              env:
+                  KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
+                  API_PRODUCT_ID: ${{ secrets.API_PRODUCT_ID }}
+                  VERSION_ID: ${{ secrets.VERSION_ID }}
+                  KONNECT_API_ENDPOINT: ${{ vars.KONNECT_API_ENDPOINT || 'https://us.api.konghq.com' }}
+                  PUBLISH_VERSION: ${{ github.event.inputs.publish_version || 'false' }}
+                  SPEC_FILE: kong/specs/openapi.yaml
+              run: |
+                  chmod +x scripts/publish-api-spec.sh
+                  ./scripts/publish-api-spec.sh
+
+            - name: Summary
+              if: success()
+              run: |
+                  echo "## ✅ API Spec公開成功" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "API仕様がKonnect Dev Portalに公開されました。" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### 📋 詳細" >> $GITHUB_STEP_SUMMARY
+                  echo "- **API Product ID**: \`${{ secrets.API_PRODUCT_ID }}\`" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Version ID**: \`${{ secrets.VERSION_ID }}\`" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Spec File**: \`kong/specs/openapi.yaml\`" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### 🔗 リンク" >> $GITHUB_STEP_SUMMARY
+                  echo "- [Konnect Console](https://cloud.konghq.com/)" >> $GITHUB_STEP_SUMMARY
+                  echo "- [API Products](https://cloud.konghq.com/api-products)" >> $GITHUB_STEP_SUMMARY
+
+            - name: Failure notification
+              if: failure()
+              run: |
+                  echo "## ❌ API Spec公開失敗" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "API仕様の公開に失敗しました。ログを確認してください。" >> $GITHUB_STEP_SUMMARY
