@@ -9,6 +9,7 @@
 - **Kong イメージ**: `ghcr.io/ftuajii/bookinfo/kong-gateway:3.10` (ゴールデンイメージ)
 - **オートスケーリング**: HPA 有効 (1-5 Pods, CPU 70%でスケール)
 - **モニタリング**: Prometheus + Grafana (Kong メトリクス収集)
+- **セキュリティ**: Trivy による自動脆弱性スキャン (CI/CD 統合)
 
 ### スクリプト構成
 
@@ -691,3 +692,47 @@ PUBLISH_VERSION=true ./scripts/publish-api-spec.sh
 詳細な使い方、トラブルシューティング、必要な情報の取得方法については、以下のドキュメントを参照してください:
 
 📚 **[API Spec 公開ガイド](docs/API_SPEC_PUBLISHING.md)**
+
+## セキュリティスキャン 🛡️
+
+このプロジェクトでは、**Trivy**を使用したコンテナイメージの脆弱性スキャンを CI/CD パイプラインに統合しています。
+
+### 自動スキャン対象
+
+**Kong Gateway ゴールデンイメージ**
+
+- イメージ: `ghcr.io/ftuajii/bookinfo/kong-gateway:3.10`
+- CRITICAL/HIGH/MEDIUM 脆弱性を検出
+- GitHub Security タブで詳細レポート確認可能
+
+### スキャン実行タイミング
+
+- ✅ コード変更時 (main ブランチへのプッシュ)
+- ✅ プルリクエスト作成時
+- ✅ 定期実行 (毎週月曜 9:00 JST)
+- ✅ 手動実行 (Actions → "Container Security Scan")
+
+### ローカルでのスキャン
+
+```bash
+# Trivyのインストール
+brew install aquasecurity/trivy/trivy
+
+# Kong Gatewayイメージのスキャン
+trivy image ghcr.io/ftuajii/bookinfo/kong-gateway:3.10
+
+# CRITICAL/HIGHのみ表示
+trivy image --severity CRITICAL,HIGH ghcr.io/ftuajii/bookinfo/kong-gateway:3.10
+```
+
+### スキャン結果の確認
+
+1. **GitHub Security タブ**: リポジトリの Security → Code scanning
+2. **Actions サマリー**: ワークフロー実行結果に統計表示
+3. **ローカルレポート**: HTML 形式の詳細レポート生成可能
+
+### 詳細ドキュメント
+
+セキュリティスキャンの詳細、脆弱性への対応方法、ベストプラクティスについては:
+
+📚 **[セキュリティスキャンガイド](docs/SECURITY_SCANNING.md)**
