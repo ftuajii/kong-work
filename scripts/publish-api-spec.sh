@@ -77,8 +77,16 @@ echo "📄 API Specファイル: $SPEC_FILE"
 echo ""
 
 # Step 1: OpenAPI SpecをBase64エンコード
-echo "🔐 Step 1/3: API SpecをBase64エンコード中..."
-SPEC_CONTENT=$(base64 -i "$SPEC_FILE")
+echo "🔐 Step 1/4: API SpecをBase64エンコード中..."
+
+# macOSとLinuxでbase64コマンドのオプションが異なるため、両方に対応
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  # macOS
+  SPEC_CONTENT=$(base64 -i "$SPEC_FILE")
+else
+  # Linux (GitHub Actions)
+  SPEC_CONTENT=$(base64 -w 0 "$SPEC_FILE")
+fi
 
 if [ -z "$SPEC_CONTENT" ]; then
   echo "❌ Base64エンコードに失敗しました"
