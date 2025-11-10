@@ -3,13 +3,14 @@ add-plugins:
       - $..services[*]
     overwrite: false
     plugins:
-      - name: rate-limiting
+      - name: rate-limiting-advanced
         config:
-          minute: 200 # 1分で200回 (≈30秒で100回)
-          limit_by: ip
-          policy: local
-          fault_tolerant: true
+          limit:
+            - 100
+          window_size:
+            - 30
           hide_client_headers: false
+          namespace: service_plugins
       - name: key-auth
         config:
           key_names:

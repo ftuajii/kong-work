@@ -49,17 +49,32 @@ echo ""
 echo "📝 Step 1/4: OpenAPI仕様からKong設定を生成..."
 deck file openapi2kong \
   --spec "$ROOT_DIR/kong/specs/openapi.yaml" \
-  --output-file "$ROOT_DIR/kong/configs/generated-kong.yaml"
+  --output-file "$ROOT_DIR/kong/configs/generated-kong.yaml" \
+  --format yaml
+echo "✅ Kong config generated successfully!"
+echo ""
+echo "📋 Generated services:"
+grep -E "^- name:" "$ROOT_DIR/kong/configs/generated-kong.yaml" | sed 's/- name:/  -/' || true
 
 echo ""
 echo "🔌 Step 2/4: プラグインを追加..."
 deck file add-plugins \
-  --config "$ROOT_DIR/kong/configs/service-plugins.yaml" \
-  "$ROOT_DIR/kong/configs/generated-kong.yaml" \
-  --output-file "$ROOT_DIR/kong/configs/final-kong.yaml"
+  -s "$ROOT_DIR/kong/configs/generated-kong.yaml" \
+  "$ROOT_DIR/kong/configs/service-plugins.yaml" \
+  -o "$ROOT_DIR/kong/configs/final-kong.yaml"
+echo "✅ Plugins added successfully!"
 
 echo ""
-echo "☁️  Step 3/4: Konnectに同期..."
+echo "📊 Step 3/4: 変更内容を確認 (Dry-run)..."
+deck gateway diff \
+  --konnect-token "$KONNECT_TOKEN" \
+  --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
+  "$ROOT_DIR/kong/configs/final-kong.yaml" \
+  "$ROOT_DIR/kong/configs/global-plugins.yaml" \
+  "$ROOT_DIR/kong/configs/consumers.yaml" || true
+
+echo ""
+echo "🚀 Step 4/4: Konnectに同期..."
 deck gateway sync \
   --konnect-token "$KONNECT_TOKEN" \
   --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
@@ -68,11 +83,10 @@ deck gateway sync \
   "$ROOT_DIR/kong/configs/consumers.yaml"
 
 echo ""
-echo "✅ Step 4/4: 同期完了"
+echo "✅ Successfully deployed to Konnect!"
+echo "📦 Control Plane: $KONNECT_CONTROL_PLANE_NAME"
 echo ""
 echo "📋 同期された設定:"
 echo "   - サービス・ルート (final-kong.yaml)"
 echo "   - グローバルプラグイン (global-plugins.yaml)"
 echo "   - コンシューマー (consumers.yaml)"
-echo ""
-echo "🎯 変更はローカルファイルを編集し、このスクリプトで同期してください"
