@@ -8,16 +8,6 @@ on:
         required: false
         default: "true"
         type: string
-  workflow_dispatch:
-    inputs:
-      publish_version:
-        description: "API Product Versionを公開状態にする"
-        required: false
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
 
 jobs:
   publish-spec:

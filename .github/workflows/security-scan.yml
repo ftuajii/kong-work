@@ -2,15 +2,8 @@ name: Container Security Scan
 
 on:
   schedule:
-    # 毎週月曜日 9:00 JST (00:00 UTC) に定期スキャン
-    - cron: "0 0 * * 1"
-  workflow_dispatch:
-    inputs:
-      image_tag:
-        description: "スキャンするイメージタグ (例: 3.10)"
-        required: false
-        default: "3.10"
-        type: string
+    # 毎日0時にスキャンを実行
+    - cron: "0 0 * * *"
   workflow_call:
     inputs:
       image_tag:

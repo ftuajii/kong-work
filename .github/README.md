@@ -6,26 +6,28 @@
 
 **Single Source of Truth: `kong/specs/openapi.yaml`**
 
-OpenAPI 仕様を変更すると、自動的にセキュリティスキャン → API Spec 公開 → Kong 設定デプロイが実行されます。
+OpenAPI 仕様を変更すると、メインパイプラインが自動的にセキュリティスキャン → 並列実行(API Spec 公開 + Kong 設定デプロイ)を実行します。
 
 ```
 OpenAPI 仕様の変更 (kong/specs/openapi.yaml)
          ↓
     GitHub Push
          ↓
-   GitHub Actions トリガー
+main-pipeline.yml (メインパイプライン)
          ↓
-security-scan.yml (コンテナセキュリティスキャン)
+security-scan.yml (セキュリティスキャン)
          ↓ (成功時のみ)
-publish-api-spec.yml (Dev Portal に公開)
-         ↓
-deck file openapi2kong (Kong 設定生成)
-         ↓
-deck file add-plugins (プラグイン追加)
-         ↓
-deck gateway sync (Konnect デプロイ)
-         ↓
-    Kong Data Plane
+    並列実行:
+    ├─ publish-api-spec.yml (Dev Portal公開)
+    └─ deploy-to-konnect.yml (Kong設定デプロイ)
+            ↓
+       deck file openapi2kong
+            ↓
+       deck file add-plugins
+            ↓
+       deck gateway sync
+            ↓
+       Kong Data Plane
 ```
 
 ---
@@ -58,21 +60,55 @@ deck gateway sync (Konnect デプロイ)
 
 ### ワークフロー概要
 
-このプロジェクトには 3 つのワークフローがあり、依存関係を持って実行されます:
+このプロジェクトには 4 つのワークフローがあり、メインパイプラインから他のワークフローを再利用可能な形で呼び出します:
 
-1. **`security-scan.yml`** - コンテナセキュリティスキャン (最初に実行)
-2. **`publish-api-spec.yml`** - API Spec 公開 (スキャン成功後)
-3. **`deploy-to-konnect.yml`** - Kong 設定デプロイ (スキャン成功後)
+1. **`main-pipeline.yml`** - メイン CI/CD パイプライン (エントリーポイント)
+2. **`security-scan.yml`** - コンテナセキュリティスキャン (再利用可能)
+3. **`publish-api-spec.yml`** - API Spec 公開 (再利用可能)
+4. **`deploy-to-konnect.yml`** - Kong 設定デプロイ (再利用可能)
+
+**実行フロー:**
+
+```
+main-pipeline.yml
+    ↓
+security-scan (1回実行)
+    ↓ (成功時)
+並列実行:
+├─ publish-api-spec
+└─ deploy-to-konnect
+```
 
 ---
 
-### ワークフロー 1: `security-scan.yml`
+### ワークフロー 1: `main-pipeline.yml`
+
+**目的:** CI/CD パイプライン全体を統括
+
+**トリガー条件:**
+
+- `kong/specs/openapi.yaml` の変更
+- `kong/configs/global-plugins.yaml` の変更
+- `kong/configs/service-plugins.yaml` の変更
+- ワークフローファイル自体の変更
+- 手動実行: Actions → "Main CI/CD Pipeline"
+
+**実行内容:**
+
+1. セキュリティスキャンを実行
+2. 成功時に並列実行:
+   - API Spec を Dev Portal に公開
+   - Kong 設定を Konnect にデプロイ
+
+---
+
+### ワークフロー 2: `security-scan.yml`
 
 **目的:** Kong Gateway イメージの脆弱性スキャン
 
 **トリガー条件:**
 
-- 他のワークフローから `workflow_call` で呼び出し
+- `main-pipeline.yml` から `workflow_call` で呼び出し
 - 定期実行: 毎週月曜 9:00 JST (00:00 UTC)
 - 手動実行: Actions → "Container Security Scan"
 
@@ -90,44 +126,40 @@ deck gateway sync (Konnect デプロイ)
 
 ---
 
-### ワークフロー 2: `publish-api-spec.yml`
+### ワークフロー 3: `publish-api-spec.yml`
 
 **目的:** OpenAPI 仕様を Konnect Dev Portal に公開
 
 **トリガー条件:**
 
-- `kong/specs/openapi.yaml` が `main` ブランチに push された時
+- `main-pipeline.yml` から `workflow_call` で呼び出し (並列実行)
 - 手動実行: Actions → "Publish API Spec to Konnect Dev Portal"
 
 **実行ステップ:**
 
-1. **Security Scan**: セキュリティスキャンを実行 (失敗時は中断)
-2. **Checkout**: コードをチェックアウト
-3. **Validate**: OpenAPI 仕様の検証
-4. **Publish**: Konnect Dev Portal に公開
+1. **Checkout**: コードをチェックアウト
+2. **Validate**: OpenAPI 仕様の検証
+3. **Publish**: Konnect Dev Portal に公開
 
 ---
 
-### ワークフロー 3: `deploy-to-konnect.yml`
+### ワークフロー 4: `deploy-to-konnect.yml`
 
 **目的:** Kong 設定を Konnect にデプロイ
 
 **トリガー条件:**
 
-- `kong/specs/openapi.yaml` が `main` ブランチに push された時
-- `kong/configs/global-plugins.yaml` が変更された時
-- `kong/configs/service-plugins.yaml` が変更された時
-- 手動実行可能
+- `main-pipeline.yml` から `workflow_call` で呼び出し (並列実行)
+- 手動実行: Actions → "Deploy to Konnect"
 
 **実行ステップ:**
 
-1. **Security Scan**: セキュリティスキャンを実行 (失敗時は中断)
-2. **Checkout**: コードをチェックアウト
-3. **Setup deck**: deck CLI (v1.49.2) をインストール
-4. **Generate Kong config**: `deck file openapi2kong` で Kong 設定を生成
-5. **Add plugins**: `deck file add-plugins` でサービスプラグインを追加
-6. **Show diff**: 変更内容をプレビュー（Dry-run）
-7. **Deploy**: Konnect へ設定を同期
+1. **Checkout**: コードをチェックアウト
+2. **Setup deck**: deck CLI (v1.49.2) をインストール
+3. **Generate Kong config**: `deck file openapi2kong` で Kong 設定を生成
+4. **Add plugins**: `deck file add-plugins` でサービスプラグインを追加
+5. **Show diff**: 変更内容をプレビュー（Dry-run）
+6. **Deploy**: Konnect へ設定を同期
 
 **デプロイされるファイル:**
 
@@ -138,7 +170,7 @@ deck gateway sync (Konnect デプロイ)
 
 ---
 
-## � 使い方
+## 📖 使い方
 
 ### 1. 新しい API エンドポイントを追加
 
@@ -170,8 +202,8 @@ git commit -m "feat: Add /products/{id}/ratings endpoint"
 git push origin feature/add-ratings-api
 
 # 5. Pull Request作成 → レビュー → Merge
-# Mergeされた時点でGitHub Actionsが自動実行される
-# 1. セキュリティスキャン → 2. API Spec公開 → 3. Kong設定デプロイ
+# Mergeされると main-pipeline.yml が自動実行される
+# 1. セキュリティスキャン → 2. 並列実行(API Spec公開 + Kong設定デプロイ)
 ```
 
 ---

@@ -267,7 +267,10 @@ Namespace: monitoring
 │   └── export-konnect-config.sh  # Konnect設定エクスポート
 ├── .github/
 │   └── workflows/
-│       └── deploy-to-konnect.yml  # OpenAPI変更時の自動デプロイ
+│       ├── main-pipeline.yml          # メインCI/CDパイプライン (エントリーポイント)
+│       ├── security-scan.yml          # セキュリティスキャン (再利用可能)
+│       ├── publish-api-spec.yml       # API Spec公開 (再利用可能)
+│       └── deploy-to-konnect.yml      # Kong設定デプロイ (再利用可能)
 ├── .gitignore
 └── README.md
 ```
@@ -798,20 +801,39 @@ deck gateway sync bookinfo-kong-generated.yaml global-plugins.yaml \
 
 **GitHub Actions による自動デプロイ:**
 
-`kong/specs/openapi.yaml` を変更して main ブランチにプッシュすると、GitHub Actions が自動的に:
+`kong/specs/openapi.yaml` を変更して main ブランチにプッシュすると、**Main CI/CD Pipeline** が自動的に実行されます:
 
-1. **セキュリティスキャン**: Kong Gateway イメージの脆弱性チェック
-2. **API Spec 公開**: Konnect Dev Portal に OpenAPI 仕様を公開
-3. **Kong 設定生成**: `deck file openapi2kong` で Kong 設定を生成
-4. **プラグイン追加**: `deck file add-plugins` でサービスレベルプラグインを追加
-5. **差分確認**: `deck gateway diff` で変更内容を確認
-6. **デプロイ**: `deck gateway sync` で Konnect にデプロイ
+```
+main-pipeline.yml (メインパイプライン)
+    ↓
+1. security-scan (セキュリティスキャン)
+   Kong Gateway イメージの脆弱性チェック
+    ↓ (成功時)
+2. 並列実行:
+   ├─ publish-api-spec (API Spec公開)
+   │  └─ Konnect Dev Portal に OpenAPI 仕様を公開
+   │
+   └─ deploy-to-konnect (Kong設定デプロイ)
+      ├─ deck file openapi2kong で Kong 設定を生成
+      ├─ deck file add-plugins でサービスプラグインを追加
+      ├─ deck gateway diff で変更内容を確認
+      └─ deck gateway sync で Konnect にデプロイ
+```
 
-**.github/workflows/** を参照:
+**ワークフロー構成** (`.github/workflows/`):
 
-- `security-scan.yml` - コンテナセキュリティスキャン
-- `publish-api-spec.yml` - API Spec 公開
-- `deploy-to-konnect.yml` - Kong 設定デプロイ
+- `main-pipeline.yml` - メイン CI/CD パイプライン (エントリーポイント)
+- `security-scan.yml` - コンテナセキュリティスキャン (再利用可能)
+- `publish-api-spec.yml` - API Spec 公開 (再利用可能)
+- `deploy-to-konnect.yml` - Kong 設定デプロイ (再利用可能)
+
+**トリガー条件**:
+
+- `kong/specs/openapi.yaml` の変更
+- `kong/configs/global-plugins.yaml` の変更
+- `kong/configs/service-plugins.yaml` の変更
+- ワークフローファイル自体の変更
+- 手動実行 (Actions → "Main CI/CD Pipeline" → Run workflow)
 
 ---
 
@@ -1418,11 +1440,21 @@ PUBLISH_VERSION=true ./scripts/publish-api-spec.sh
 
 2. `kong/specs/openapi.yaml` を変更してプッシュすると、以下の順で自動実行されます:
 
-   - **セキュリティスキャン** → Kong Gateway イメージの脆弱性チェック
-   - **API Spec 公開** → Konnect Dev Portal に仕様を公開
-   - **Kong デプロイ** → サービスとルートを Konnect に反映
+   ```
+   main-pipeline.yml
+       ↓
+   セキュリティスキャン (1回実行)
+       ↓ (成功時)
+   並列実行:
+   ├─ API Spec公開 (publish-api-spec.yml)
+   └─ Kong設定デプロイ (deploy-to-konnect.yml)
+   ```
 
 3. 手動実行も可能:
+
+   - メインパイプライン: Actions → "Main CI/CD Pipeline" → Run workflow
+   - API Spec 公開のみ: Actions → "Publish API Spec to Konnect Dev Portal" → Run workflow
+   - セキュリティスキャンのみ: Actions → "Container Security Scan" → Run workflow
    - API Spec 公開: Actions → "Publish API Spec to Konnect Dev Portal" → Run workflow
    - セキュリティスキャン: Actions → "Container Security Scan" → Run workflow
 
@@ -1446,11 +1478,11 @@ PUBLISH_VERSION=true ./scripts/publish-api-spec.sh
 
 ### スキャン実行タイミング
 
-- ✅ **他ワークフローから呼び出し**: API Spec 公開・Kong デプロイの前に自動実行
+- ✅ **メインパイプラインから呼び出し**: OpenAPI/Kong 設定変更時に自動実行
 - ✅ **定期実行**: 毎週月曜 9:00 JST (00:00 UTC)
 - ✅ **手動実行**: Actions → "Container Security Scan" → Run workflow
 
-セキュリティスキャンが失敗すると、API Spec 公開と Kong デプロイは実行されません。
+**重要**: セキュリティスキャンが失敗すると、API Spec 公開と Kong デプロイは実行されません。
 
 ### ローカルでのスキャン
 
