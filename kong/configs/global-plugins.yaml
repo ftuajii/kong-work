@@ -9,3 +9,13 @@ plugins:
       latency_metrics: true
       bandwidth_metrics: true
       upstream_health_metrics: true
+
+  # 監査ログプラグイン（標準出力に出力）
+  - name: file-log
+    enabled: true
+    config:
+      path: /dev/stdout
+      reopen: false
+      custom_fields_by_lua:
+        client_ip: "return ngx.var.remote_addr"
+        request_id: "return kong.ctx.shared.request_id or ngx.var.request_id"
