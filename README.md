@@ -4,6 +4,8 @@
 
 このプロジェクトは、Kong Konnect のデータプレーン(DP)と Bookinfo サンプルアプリケーションを Kubernetes (Kind) 上にデプロイし、Prometheus + Grafana でモニタリングする完全な環境を提供します。
 
+📊 **[システムアーキテクチャ図を見る](ARCHITECTURE.md)**
+
 ### 主要コンポーネント
 
 - **クラスター**: Kind (1 control-plane + 3 workers)
