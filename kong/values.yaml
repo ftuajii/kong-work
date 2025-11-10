@@ -60,3 +60,25 @@ status:
 
 manager:
   enabled: false
+
+readinessProbe:
+  httpGet:
+    path: /status/ready
+    port: status
+    scheme: HTTP
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 6
+
+livenessProbe:
+  httpGet:
+    path: /status
+    port: status
+    scheme: HTTP
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 6
