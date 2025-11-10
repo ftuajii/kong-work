@@ -1,0 +1,12 @@
+add-plugins:
+  - selectors:
+      - $..services[*]
+    overwrite: false
+    plugins:
+      - name: rate-limiting
+        config:
+          second: 100
+          limit_by: ip
+          policy: local
+          fault_tolerant: true
+          hide_client_headers: false

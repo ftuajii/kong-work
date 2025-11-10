@@ -6,10 +6,11 @@
 
 ```
 kong/configs/
-├── bookinfo-kong-generated.yaml  # ← deck file openapi2kong で自動生成
-├── global-plugins.yaml           # グローバルプラグイン (Prometheus など)
-├── konnect-export.yaml           # Konnect から export した設定 (参考用)
-└── README.md                     # このファイル
+├── generated-kong.yaml      # ← deck file openapi2kong で自動生成
+├── service-plugins.yaml     # サービスプラグイン定義 (deck file add-plugins用)
+├── final-kong.yaml         # プラグイン追加後の最終設定 (Konnectデプロイ用)
+├── global-plugins.yaml      # グローバルプラグイン (Prometheus など)
+└── README.md                # このファイル
 ```
 
 ## 🎯 設計思想: OpenAPI-driven Kong 設定管理
@@ -25,7 +26,11 @@ kong/specs/openapi.yaml (SSoT)
          ↓
   deck file openapi2kong
          ↓
-kong/configs/bookinfo-kong-generated.yaml (自動生成)
+kong/configs/generated-kong.yaml (基本設定)
+         ↓
+  deck file add-plugins
+         ↓
+kong/configs/final-kong.yaml (プラグイン追加後)
          +
 kong/configs/global-plugins.yaml (手動管理)
          ↓
@@ -38,12 +43,13 @@ kong/configs/global-plugins.yaml (手動管理)
 
 ### ファイルの役割
 
-| ファイル名                     | 役割                   | 編集方法                |
-| ------------------------------ | ---------------------- | ----------------------- |
-| `openapi.yaml`                 | API 仕様の定義 (SSoT)  | ✅ 手動編集             |
-| `bookinfo-kong-generated.yaml` | Services/Routes の定義 | ❌ 自動生成 (編集禁止)  |
-| `global-plugins.yaml`          | グローバルプラグイン   | ✅ 手動編集             |
-| `konnect-export.yaml`          | Konnect の現在の設定   | ❌ export のみ (参考用) |
+| ファイル名             | 役割                       | 編集方法               |
+| ---------------------- | -------------------------- | ---------------------- |
+| `openapi.yaml`         | API 仕様の定義 (SSoT)      | ✅ 手動編集            |
+| `generated-kong.yaml`  | Services/Routes の基本定義 | ❌ 自動生成 (編集禁止) |
+| `service-plugins.yaml` | サービスプラグイン定義     | ✅ 手動編集            |
+| `final-kong.yaml`      | プラグイン追加後の最終設定 | ❌ 自動生成 (編集禁止) |
+| `global-plugins.yaml`  | グローバルプラグイン       | ✅ 手動編集            |
 
 ## 🔄 ワークフロー
 

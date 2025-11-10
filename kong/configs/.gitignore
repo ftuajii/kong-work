@@ -6,3 +6,7 @@
 # 一時ファイル
 *.tmp
 .DS_Store
+
+# 自動生成kong.yamlファイル
+generated-kong.yaml
+final-kong.yaml

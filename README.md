@@ -62,7 +62,9 @@
 ```
 kong/specs/openapi.yaml (SSoT)
   ↓ deck file openapi2kong
-kong/generated-kong.yaml (自動生成)
+kong/configs/generated-kong.yaml (基本設定)
+  ↓ deck file add-plugins
+kong/configs/final-kong.yaml (プラグイン追加後)
   ↓ deck gateway sync
 Konnect (自動デプロイ)
 ```
@@ -131,8 +133,9 @@ curl http://localhost:8000/products/0/ratings
 ./scripts/send-test-requests.sh
 
 # Kong設定更新
-deck file openapi2kong -s kong/specs/openapi.yaml -o kong/generated-kong.yaml
-deck gateway sync kong/generated-kong.yaml --konnect-control-plane-name kong-work
+deck file openapi2kong --spec kong/specs/openapi.yaml --output-file kong/configs/generated-kong.yaml
+deck file add-plugins -s kong/configs/generated-kong.yaml kong/configs/service-plugins.yaml -o kong/configs/final-kong.yaml
+deck gateway sync kong/configs/final-kong.yaml kong/configs/global-plugins.yaml --konnect-control-plane-name kong-work
 
 # Kong 個別管理
 ./scripts/start-kong.sh            # Kong DP起動
@@ -240,7 +243,11 @@ Namespace: monitoring
 │   │   └── tls.key
 │   ├── specs/                # OpenAPI仕様 (SSoT)
 │   │   └── openapi.yaml      # ⭐ Bookinfo API仕様 (Kong設定の単一情報源)
-│   └── generated-kong.yaml   # ← deck file openapi2kong で自動生成
+│   └── configs/              # Kong設定ファイル
+│       ├── generated-kong.yaml    # OpenAPIから生成された基本設定
+│       ├── service-plugins.yaml   # サービスプラグイン定義 (rate-limiting)
+│       ├── global-plugins.yaml    # グローバルプラグイン (prometheus, file-log)
+│       └── final-kong.yaml        # 最終的なKong設定 (Konnectデプロイ用)
 ├── bookinfo/                 # Bookinfo アプリケーション
 │   └── bookinfo-deployment.yaml  # Kubernetes Deployment/Service定義
 ├── monitoring/               # モニタリング設定

@@ -7,11 +7,17 @@ on:
     paths:
       - "kong/specs/openapi.yaml"
       - "kong/configs/global-plugins.yaml"
+      - "kong/configs/service-plugins.yaml"
   workflow_dispatch:
 
 jobs:
+  security-scan:
+    name: Security Scan
+    uses: ./.github/workflows/security-scan.yml
+
   deploy:
     runs-on: ubuntu-latest
+    needs: security-scan
 
     steps:
       - name: Checkout code
@@ -29,12 +35,21 @@ jobs:
           echo "🔄 Generating Kong configuration from OpenAPI spec..."
           deck file openapi2kong \
             --spec kong/specs/openapi.yaml \
-            --output-file kong/configs/bookinfo-kong-generated.yaml \
+            --output-file kong/configs/generated-kong.yaml \
             --format yaml
           echo "✅ Kong config generated successfully!"
           echo ""
           echo "📋 Generated services:"
-          grep -E "^- name:" kong/configs/bookinfo-kong-generated.yaml | sed 's/- name:/  -/' || true
+          grep -E "^- name:" kong/configs/generated-kong.yaml | sed 's/- name:/  -/' || true
+
+      - name: Add service plugins
+        run: |
+          echo "🔌 Adding service-level plugins..."
+          deck file add-plugins \
+            -s kong/configs/generated-kong.yaml \
+            kong/configs/service-plugins.yaml \
+            -o kong/configs/final-kong.yaml
+          echo "✅ Plugins added successfully!"
 
       - name: Show diff (Dry-run)
         env:
@@ -45,7 +60,7 @@ jobs:
           deck gateway diff \
             --konnect-token "$KONNECT_TOKEN" \
             --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
-            kong/configs/bookinfo-kong-generated.yaml \
+            kong/configs/final-kong.yaml \
             kong/configs/global-plugins.yaml || true
 
       - name: Deploy to Konnect
@@ -57,7 +72,7 @@ jobs:
           deck gateway sync \
             --konnect-token "$KONNECT_TOKEN" \
             --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
-            kong/configs/bookinfo-kong-generated.yaml \
+            kong/configs/final-kong.yaml \
             kong/configs/global-plugins.yaml
 
       - name: Deployment success
