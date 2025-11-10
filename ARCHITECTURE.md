@@ -19,10 +19,14 @@ graph TB
         end
 
         subgraph "Namespace: bookinfo"
-            Product[productpage<br/>Port: 9080<br/>/api/v1/*]
-            Details[details<br/>Port: 9080<br/>/*]
-            Reviews[reviews<br/>Port: 9080<br/>/api/v1/*]
-            Ratings[ratings<br/>Port: 9080<br/>/api/v1/*]
+            Product[productpage<br/>Port: 9080<br/>/api/v1/* ← Kong管理対象]
+            Details[details<br/>Port: 9080<br/>内部利用のみ]
+            Reviews[reviews<br/>Port: 9080<br/>内部利用のみ]
+            Ratings[ratings<br/>Port: 9080<br/>内部利用のみ]
+
+            Product -.内部呼び出し.-> Reviews
+            Product -.内部呼び出し.-> Ratings
+            Product -.内部呼び出し.-> Details
         end
 
         subgraph "Namespace: monitoring"
@@ -53,10 +57,7 @@ graph TB
     end
 
     CP -.mTLS<br/>証明書認証.-> DP
-    DP --> Product
-    DP --> Details
-    DP --> Reviews
-    DP --> Ratings
+    DP -->|/api/v1/* のみ| Product
 
     StatusSvc -.ServiceMonitor<br/>namespace: kong.-> PromOp
     PromOp --> Prom
@@ -75,9 +76,9 @@ graph TB
     style Prom fill:#e8f5e9
     style Grafana fill:#e8f5e9
     style Product fill:#fce4ec
-    style Details fill:#fce4ec
-    style Reviews fill:#fce4ec
-    style Ratings fill:#fce4ec
+    style Details fill:#f5f5f5
+    style Reviews fill:#f5f5f5
+    style Ratings fill:#f5f5f5
 ```
 
 ## Kong 設定管理フロー (OpenAPI-Driven)
@@ -86,28 +87,23 @@ graph TB
 sequenceDiagram
     participant Dev as 開発者
     participant OpenAPI as kong/specs/openapi.yaml
-    participant CI as GitHub Actions
-    participant Generated as bookinfo-kong-generated.yaml
-    participant Plugins as global-plugins.yaml
     participant Deck as deck CLI
+    participant Generated as kong/generated-kong.yaml
     participant Konnect as Kong Konnect CP
     participant DP as Kong Data Plane
 
     Dev->>OpenAPI: 1. API仕様を編集
-    Note over OpenAPI: Single Source of Truth<br/>paths, servers, x-kong-*
+    Note over OpenAPI: Single Source of Truth<br/>productpage /api/v1/* のみ
 
-    CI->>OpenAPI: 2. deck file openapi2kong
-    OpenAPI->>Generated: 自動生成<br/>services, routes, upstreams
+    Dev->>Deck: 2. deck file openapi2kong
+    Deck->>OpenAPI: openapi.yaml読み込み
+    OpenAPI->>Generated: 自動生成<br/>単一service + 4 routes
 
-    CI->>Generated: 3. マージ
-    CI->>Plugins: 3. マージ
-    Generated->>Deck: bookinfo-kong-generated.yaml
-    Plugins->>Deck: global-plugins.yaml
-
-    Deck->>Konnect: 4. deck gateway sync<br/>--konnect-token
+    Dev->>Deck: 3. deck gateway sync
+    Deck->>Konnect: --konnect-control-plane-name<br/>--konnect-token-file
     Note over Konnect: 設定を自動更新
 
-    Konnect-->>DP: 5. mTLS経由で配信
+    Konnect-->>DP: 4. mTLS経由で配信
     Note over DP: 即座にルーティング開始
 ```
 
@@ -118,28 +114,28 @@ sequenceDiagram
     participant Client as クライアント
     participant PF as port-forward
     participant Kong as Kong DP
-    participant Plugin as Prometheusプラグイン
     participant Product as productpage
-    participant Det as details
     participant Rev as reviews
+    participant Rat as ratings
+    participant Det as details
     participant Metrics as メトリクス
 
-    Client->>PF: GET /products/0
+    Client->>PF: GET /products/0/reviews
     PF->>Kong: localhost:8000
 
-    Kong->>Kong: ルートマッチング
-    Kong->>Plugin: プラグイン実行
-    Plugin->>Metrics: 記録開始
+    Kong->>Kong: ルートマッチング<br/>/products/{id}/reviews
+    Kong->>Metrics: 記録開始
 
-    Kong->>Product: /api/v1/products/0
-    Product->>Det: 内部呼び出し
-    Product->>Rev: 内部呼び出し
-    Rev-->>Product: レスポンス
-    Det-->>Product: レスポンス
-    Product-->>Kong: JSON
+    Kong->>Product: /api/v1/products/0/reviews
+    Note over Product: productpage内部で<br/>reviews を呼び出し
+    Product->>Rev: /reviews/0
+    Rev-->>Product: レビューJSON
+    Note over Product: ratingsも必要なら<br/>内部で呼び出し
+    Product->>Rat: /ratings/0
+    Rat-->>Product: 評価JSON
+    Product-->>Kong: 統合されたJSON
 
-    Kong->>Plugin: レスポンス処理
-    Plugin->>Metrics: レイテンシ記録
+    Kong->>Metrics: レイテンシ記録
 
     Kong->>PF: 200 OK
     PF->>Client: レスポンス
@@ -193,7 +189,7 @@ graph TD
 
     Step6 --> Step7[Step 7: Bookinfo デプロイ<br/>productpage, details,<br/>reviews, ratings]
 
-    Step7 --> End([完了])
+    Step7 --> End([完了<br/>Kong は productpage の<br/>/api/v1/* のみを管理])
 
     style Step4 fill:#ffe0b2
     style Step5 fill:#c8e6c9
@@ -202,10 +198,12 @@ graph TD
     Note1[重要: Kong namespace を先に作成]
     Note2[重要: Prometheus Operator を<br/>Kong より先にデプロイ]
     Note3[重要: ServiceMonitor が<br/>Kong を即座に認識]
+    Note4[注意: reviews/ratings/details は<br/>Kong管理対象外]
 
     Step4 -.-> Note1
     Step5 -.-> Note2
     Step6 -.-> Note3
+    Step7 -.-> Note4
 ```
 
 ## ネットワーク構成
@@ -226,10 +224,10 @@ graph TB
 
         subgraph "Pods"
             KongPod[Kong DP Pod<br/>Proxy: 0.0.0.0:8000<br/>Status: 0.0.0.0:8100]
-            ProductPod[productpage Pod<br/>0.0.0.0:9080]
-            DetailsPod[details Pod<br/>0.0.0.0:9080]
-            ReviewsPod[reviews Pod<br/>0.0.0.0:9080]
-            RatingsPod[ratings Pod<br/>0.0.0.0:9080]
+            ProductPod[productpage Pod<br/>0.0.0.0:9080<br/>/api/v1/* ← Kong管理]
+            DetailsPod[details Pod<br/>0.0.0.0:9080<br/>内部利用のみ]
+            ReviewsPod[reviews Pod<br/>0.0.0.0:9080<br/>内部利用のみ]
+            RatingsPod[ratings Pod<br/>0.0.0.0:9080<br/>内部利用のみ]
             PromPod[Prometheus Pod]
             GrafanaPod[Grafana Pod]
         end
@@ -249,10 +247,10 @@ graph TB
     GrafanaSvc --> GrafanaPod
     PromSvc --> PromPod
 
-    KongPod --> ProductPod
-    KongPod --> DetailsPod
-    KongPod --> ReviewsPod
-    KongPod --> RatingsPod
+    KongPod -->|/api/v1/* のみ| ProductPod
+    ProductPod -.内部呼び出し.-> ReviewsPod
+    ProductPod -.内部呼び出し.-> RatingsPod
+    ProductPod -.内部呼び出し.-> DetailsPod
 
     IPPool --> KongProxy
     L2Ad --> KongProxy
@@ -261,6 +259,10 @@ graph TB
 
     style KongProxy fill:#fff4e6
     style KongPod fill:#fff4e6
+    style ProductPod fill:#fce4ec
+    style DetailsPod fill:#f5f5f5
+    style ReviewsPod fill:#f5f5f5
+    style RatingsPod fill:#f5f5f5
     style PromPod fill:#e8f5e9
     style GrafanaPod fill:#e8f5e9
 ```
@@ -278,12 +280,14 @@ graph TB
 
 ### Bookinfo 関連
 
-| コンポーネント | 種類                 | Namespace | ポート | 用途           |
-| -------------- | -------------------- | --------- | ------ | -------------- |
-| productpage    | Deployment + Service | bookinfo  | 9080   | フロントエンド |
-| details        | Deployment + Service | bookinfo  | 9080   | 書籍詳細       |
-| reviews        | Deployment + Service | bookinfo  | 9080   | レビュー       |
-| ratings        | Deployment + Service | bookinfo  | 9080   | 評価           |
+| コンポーネント | 種類                 | Namespace | ポート | 用途                     | Kong 管理 |
+| -------------- | -------------------- | --------- | ------ | ------------------------ | --------- |
+| productpage    | Deployment + Service | bookinfo  | 9080   | API 統合サービス         | ✅        |
+| details        | Deployment + Service | bookinfo  | 9080   | 書籍詳細（内部利用のみ） | ❌        |
+| reviews        | Deployment + Service | bookinfo  | 9080   | レビュー（内部利用のみ） | ❌        |
+| ratings        | Deployment + Service | bookinfo  | 9080   | 評価（内部利用のみ）     | ❌        |
+
+**注意:** Kong は `productpage` の `/api/v1/*` エンドポイントのみを管理します。
 
 ### モニタリング関連
 
@@ -304,20 +308,17 @@ graph TB
 
 ## メトリクス例
 
-Kong Prometheus プラグインが収集するメトリクス:
+Kong が収集するメトリクス（ServiceMonitor 経由で Prometheus に送信）:
 
 ```promql
-# リクエスト総数
-kong_http_requests_total{service="bookinfo-productpage", code="200"}
+# リクエスト総数（単一サービス bookinfo-api）
+kong_http_requests_total{service="bookinfo-api", code="200"}
 
 # レイテンシ（ヒストグラム）
-kong_latency_bucket{type="request", service="bookinfo-productpage", le="100"}
+kong_latency_bucket{type="request", service="bookinfo-api", le="100"}
 
 # 帯域幅
-kong_bandwidth_bytes{type="egress", service="bookinfo-productpage"}
-
-# アップストリーム健全性
-kong_upstream_target_health{upstream="bookinfo-productpage", target="productpage.bookinfo.svc.cluster.local:9080"}
+kong_bandwidth_bytes{type="egress", service="bookinfo-api"}
 ```
 
 Grafana で可視化可能なクエリ:

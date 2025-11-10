@@ -2,7 +2,7 @@
 
 ## 概要
 
-このプロジェクトは、Kong Konnect のデータプレーン(DP)と Bookinfo サンプルアプリケーションを Kubernetes (Kind) 上にデプロイし、Prometheus + Grafana でモニタリングする完全な環境を提供します。
+このプロジェクトは、Kong Konnect のデータプレーン(DP)と Bookinfo サンプルアプリケーションを Kubernetes (Kind) 上にデプロイし、API ゲートウェイとして Kong を活用する環境を提供します。
 
 📊 **[システムアーキテクチャ図を見る](ARCHITECTURE.md)**
 
@@ -11,10 +11,9 @@
 - **クラスター**: Kind (1 control-plane + 3 workers)
 - **LoadBalancer**: MetalLB (172.21.255.200-250)
 - **Kong Gateway**: v3.10 (Data Plane モード、Konnect CP 接続)
-- **Bookinfo**: Istio サンプルアプリケーション (productpage, details, reviews, ratings)
+- **Bookinfo**: Istio サンプルアプリケーション (productpage のみを Kong で管理)
 - **モニタリング**: kube-prometheus-stack (Prometheus + Grafana)
 - **オートスケーリング**: HPA 有効 (1-5 Pods, CPU 70%)
-- **CI/CD**: GitHub Actions (OpenAPI → Kong 設定自動生成 → Konnect 自動デプロイ)
 
 ### アーキテクチャ
 
@@ -36,37 +35,49 @@
 │  │  - MetalLB LoadBalancer (172.21.255.200)         │  │
 │  └──────────────────────────────────────────────────┘  │
 │                      │                                   │
-│                      ↓ ルーティング                      │
+│                      ↓ ルーティング (/api/v1/* のみ)      │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │ Bookinfo App (namespace: bookinfo)               │  │
-│  │  - productpage (port 9080)                       │  │
-│  │  - details     (port 9080)                       │  │
-│  │  - reviews     (port 9080)                       │  │
-│  │  - ratings     (port 9080)                       │  │
+│  │  - productpage (port 9080) ← Kong管理対象       │  │
+│  │    └─ /api/v1/products                           │  │
+│  │    └─ /api/v1/products/{id}                      │  │
+│  │    └─ /api/v1/products/{id}/reviews              │  │
+│  │    └─ /api/v1/products/{id}/ratings              │  │
+│  │                                                    │  │
+│  │  ※ reviews, ratings, details は内部で利用       │  │
 │  └──────────────────────────────────────────────────┘  │
 │                                                          │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │ Monitoring (namespace: monitoring)                │  │
 │  │  - Prometheus (メトリクス収集・保存)             │  │
 │  │  - Grafana (可視化ダッシュボード)                │  │
-│  │  - AlertManager                                   │  │
 │  └──────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ### Kong 設定管理 (OpenAPI-Driven)
 
-このプロジェクトは**OpenAPI 仕様を Single Source of Truth (SSoT)** として採用:
+このプロジェクトは **OpenAPI 仕様を Single Source of Truth (SSoT)** として採用し、**productpage の `/api/v1/*` エンドポイントのみ**を管理:
 
 ```
 kong/specs/openapi.yaml (SSoT)
-  ↓ deck openapi2kong
-kong/configs/bookinfo-kong-generated.yaml (自動生成)
-  +
-kong/configs/global-plugins.yaml (グローバル設定)
+  ↓ deck file openapi2kong
+kong/generated-kong.yaml (自動生成)
   ↓ deck gateway sync
 Konnect (自動デプロイ)
 ```
+
+**管理対象エンドポイント:**
+
+- `GET /products` - 商品一覧
+- `GET /products/{id}` - 商品詳細
+- `GET /products/{id}/reviews` - レビュー一覧
+- `GET /products/{id}/ratings` - 評価情報
+
+**管理対象外:**
+
+- `/productpage` - HTML ページ
+- その他 `/api/v1` 配下以外のエンドポイント
 
 **利点:**
 
@@ -96,7 +107,7 @@ kong/secrets/tls.crt
 kong/secrets/tls.key
 
 # Konnect Personal Access Token
-~/.konnect/token
+~/.konnect-token
 ```
 
 ## クイックスタート
@@ -114,11 +125,18 @@ kong/secrets/tls.key
 curl http://localhost:8000/products
 curl http://localhost:8000/products/0
 curl http://localhost:8000/products/0/reviews
-curl http://localhost:8000/details/0
+curl http://localhost:8000/products/0/ratings
+
+# テストリクエスト送信（75リクエスト）
+./scripts/send-test-requests.sh
+
+# Kong設定更新
+deck file openapi2kong -s kong/specs/openapi.yaml -o kong/generated-kong.yaml
+deck gateway sync kong/generated-kong.yaml --konnect-control-plane-name kong-work
 
 # Kong 個別管理
-./scripts/start-kong.sh            # Kong DP起動 (3ステップ)
-./scripts/stop-kong.sh             # Kong DP停止 + ポートフォワード停止
+./scripts/start-kong.sh            # Kong DP起動
+./scripts/stop-kong.sh             # Kong DP停止
 ./scripts/redeploy-kong.sh         # Kong DP再デプロイ
 
 # Bookinfo アプリケーション管理
@@ -126,8 +144,8 @@ curl http://localhost:8000/details/0
 ./scripts/cleanup-bookinfo.sh     # Bookinfo 削除
 
 # モニタリング 個別管理
-./scripts/setup-monitoring.sh      # モニタリング起動 (4ステップ)
-./scripts/cleanup-monitoring.sh    # モニタリング削除 + ポートフォワード停止
+./scripts/setup-monitoring.sh      # モニタリング起動
+./scripts/cleanup-monitoring.sh    # モニタリング削除
 
 # 全環境削除
 ./scripts/cleanup.sh
@@ -136,24 +154,20 @@ curl http://localhost:8000/details/0
 **スクリプト実行フロー:**
 
 ```
-setup.sh (7ステップ)
+setup.sh
   ↓
-├─ Step 1-3: 基盤構築 (Cluster, Helm, MetalLB)
-├─ Step 4: Kong namespace & 証明書作成
-├─ Step 5: setup-monitoring.sh
+├─ 基盤構築 (Cluster, Helm, MetalLB)
+├─ Kong namespace & 証明書作成
+├─ setup-monitoring.sh
 │   ├─ Namespace作成
 │   ├─ kube-prometheus-stack インストール
-│   ├─ ServiceMonitor作成 (kong namespaceに)
-│   └─ ポートフォワード起動 (3000, 9090) ← 自動
-├─ Step 6: start-kong.sh
-│   ├─ Kong イメージロード
+│   ├─ ServiceMonitor作成
+│   └─ ポートフォワード起動 (3000, 9090)
+├─ start-kong.sh
 │   ├─ Kong デプロイ
-│   └─ ポートフォワード起動 (8000) ← 自動
-└─ Step 7: deploy-bookinfo.sh
-    └─ Bookinfo マイクロサービス4個デプロイ (productpage, details, reviews, ratings)
-
-重要: Kong namespace作成 → モニタリング → Kong DP の順序
-       → ServiceMonitor が正しく認識されるため
+│   └─ ポートフォワード起動 (8000)
+└─ deploy-bookinfo.sh
+    └─ Bookinfo デプロイ (productpage, details, reviews, ratings)
 ```
 
 ## アーキテクチャ
@@ -226,10 +240,7 @@ Namespace: monitoring
 │   │   └── tls.key
 │   ├── specs/                # OpenAPI仕様 (SSoT)
 │   │   └── openapi.yaml      # ⭐ Bookinfo API仕様 (Kong設定の単一情報源)
-│   └── configs/              # Kong宣言的設定
-│       ├── bookinfo-kong-generated.yaml  # ← deck file openapi2kong で自動生成
-│       ├── global-plugins.yaml           # グローバルプラグイン (Prometheus)
-│       └── README.md                     # 設定ファイル説明
+│   └── generated-kong.yaml   # ← deck file openapi2kong で自動生成
 ├── bookinfo/                 # Bookinfo アプリケーション
 │   └── bookinfo-deployment.yaml  # Kubernetes Deployment/Service定義
 ├── monitoring/               # モニタリング設定
