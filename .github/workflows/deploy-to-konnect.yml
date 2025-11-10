@@ -1,62 +1,63 @@
 name: Deploy to Konnect
 
 on:
-    push:
-        branches:
-            - main
-        paths:
-            - "kong/specs/openapi.yaml"
-            - "kong/configs/kong.yaml"
-            - ".github/workflows/deploy-to-konnect.yml"
-    workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "kong/specs/openapi.yaml"
+  workflow_dispatch:
 
 jobs:
-    deploy:
-        runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-            - name: Setup deck
-              run: |
-                  curl -sL https://github.com/Kong/deck/releases/download/v1.49.2/deck_1.49.2_linux_amd64.tar.gz -o deck.tar.gz
-                  tar -xf deck.tar.gz -C /tmp
-                  sudo mv /tmp/deck /usr/local/bin/
-                  deck version
+      - name: Setup deck
+        run: |
+          curl -sL https://github.com/Kong/deck/releases/download/v1.49.2/deck_1.49.2_linux_amd64.tar.gz -o deck.tar.gz
+          tar -xf deck.tar.gz -C /tmp
+          sudo mv /tmp/deck /usr/local/bin/
+          deck version
 
-            - name: Generate Kong config from OpenAPI
-              run: |
-                  echo "🔄 Generating Kong configuration from OpenAPI spec..."
-                  deck file openapi2kong \
-                    --spec kong/specs/openapi.yaml \
-                    --output-file kong/configs/petstore-kong.yaml \
-                    --format yaml
-                  echo "✅ Kong config generated successfully!"
+      - name: Generate Kong config from OpenAPI
+        run: |
+          echo "🔄 Generating Kong configuration from OpenAPI spec..."
+          deck file openapi2kong \
+            --spec kong/specs/openapi.yaml \
+            --output-file kong/configs/bookinfo-kong-generated.yaml \
+            --format yaml
+          echo "✅ Kong config generated successfully!"
+          echo ""
+          echo "📋 Generated services:"
+          grep -E "^- name:" kong/configs/bookinfo-kong-generated.yaml | sed 's/- name:/  -/' || true
 
-            - name: Show diff (Dry-run)
-              env:
-                  KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
-                  KONNECT_CONTROL_PLANE_NAME: ${{ secrets.KONNECT_CONTROL_PLANE_NAME }}
-              run: |
-                  echo "📊 Changes to be deployed:"
-                  deck gateway diff \
-                    --konnect-token "$KONNECT_TOKEN" \
-                    --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
-                    kong/configs/petstore-kong.yaml || true
+      - name: Show diff (Dry-run)
+        env:
+          KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
+          KONNECT_CONTROL_PLANE_NAME: ${{ secrets.KONNECT_CONTROL_PLANE_NAME }}
+        run: |
+          echo "📊 Changes to be deployed:"
+          deck gateway diff \
+            --konnect-token "$KONNECT_TOKEN" \
+            --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
+            kong/configs/bookinfo-kong-generated.yaml || true
 
-            - name: Deploy to Konnect
-              env:
-                  KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
-                  KONNECT_CONTROL_PLANE_NAME: ${{ secrets.KONNECT_CONTROL_PLANE_NAME }}
-              run: |
-                  echo "🚀 Deploying to Konnect..."
-                  deck gateway sync \
-                    --konnect-token "$KONNECT_TOKEN" \
-                    --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
-                    kong/configs/petstore-kong.yaml
+      - name: Deploy to Konnect
+        env:
+          KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
+          KONNECT_CONTROL_PLANE_NAME: ${{ secrets.KONNECT_CONTROL_PLANE_NAME }}
+        run: |
+          echo "🚀 Deploying to Konnect..."
+          deck gateway sync \
+            --konnect-token "$KONNECT_TOKEN" \
+            --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
+            kong/configs/bookinfo-kong-generated.yaml
 
-            - name: Deployment success
-              run: |
-                  echo "✅ Successfully deployed to Konnect!"
-                  echo "📦 Control Plane: ${{ secrets.KONNECT_CONTROL_PLANE_NAME }}"
+      - name: Deployment success
+        run: |
+          echo "✅ Successfully deployed to Konnect!"
+          echo "📦 Control Plane: ${{ secrets.KONNECT_CONTROL_PLANE_NAME }}"

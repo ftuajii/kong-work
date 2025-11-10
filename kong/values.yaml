@@ -12,11 +12,11 @@ env:
   role: data_plane
   database: "off"
   cluster_mtls: pki
-  cluster_control_plane: 95d2a389d1.us.cp.konghq.com:443
+  cluster_control_plane: b9b1351cc2.us.cp.konghq.com:443
   cluster_dp_labels: "type:docker-kubernetesOS"
-  cluster_server_name: 95d2a389d1.us.cp.konghq.com
-  cluster_telemetry_endpoint: 95d2a389d1.us.tp.konghq.com:443
-  cluster_telemetry_server_name: 95d2a389d1.us.tp.konghq.com
+  cluster_server_name: b9b1351cc2.us.cp.konghq.com
+  cluster_telemetry_endpoint: b9b1351cc2.us.tp.konghq.com:443
+  cluster_telemetry_server_name: b9b1351cc2.us.tp.konghq.com
   cluster_cert: /etc/secrets/kong-cluster-cert/tls.crt
   cluster_cert_key: /etc/secrets/kong-cluster-cert/tls.key
   lua_ssl_trusted_certificate: system
@@ -33,36 +33,10 @@ ingressController:
   enabled: false
   installCRDs: false
 
-# Data Planeモードでは起動に時間がかかるため、probeの待ち時間を調整
-readinessProbe:
-  httpGet:
-    path: "/status/ready"
-    port: status
-    scheme: HTTP
-  initialDelaySeconds: 30
-  timeoutSeconds: 5
-  periodSeconds: 10
-  successThreshold: 1
-  failureThreshold: 3
-
-livenessProbe:
-  httpGet:
-    path: "/status"
-    port: status
-    scheme: HTTP
-  initialDelaySeconds: 30
-  timeoutSeconds: 5
-  periodSeconds: 10
-  successThreshold: 1
-  failureThreshold: 3
-
 resources:
   requests:
-    cpu: 100m
-    memory: "512Mi"
-  limits:
     cpu: 1
-    memory: "1Gi"
+    memory: "2Gi"
 
 # Horizontal Pod Autoscaler (HPA)
 # CPU使用率に基づいてPod数を自動調整
