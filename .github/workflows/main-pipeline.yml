@@ -5,13 +5,9 @@ on:
         branches:
             - main
         paths:
-            - "kong/specs/openapi.yaml"
-            - "kong/configs/global-plugins.yaml"
-            - "kong/configs/service-plugins.yaml"
-            - ".github/workflows/security-scan.yml"
-            - ".github/workflows/publish-api-spec.yml"
-            - ".github/workflows/deploy-to-konnect.yml"
-            - ".github/workflows/main-pipeline.yml"
+            - "kong/specs/**"
+            - "kong/configs/**"
+            - ".github/workflows/**"
 
 jobs:
     security-scan:
