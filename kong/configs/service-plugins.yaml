@@ -6,7 +6,7 @@ add-plugins:
       - name: rate-limiting-advanced
         config:
           limit:
-            - 100
+            - 20
           window_size:
             - 30
           hide_client_headers: false
