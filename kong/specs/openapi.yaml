@@ -7,6 +7,9 @@ info:
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
+servers:
+  - url: http://productpage.bookinfo.svc.cluster.local:9080/api/v1
+    description: BookInfo ProductPage API
 tags:
   - name: product
     description: Information about a product (in this case a book)
@@ -20,49 +23,11 @@ tags:
       connect_timeout: 60000
       read_timeout: 60000
       retries: 5
-  - name: review
-    description: Review information for a product
-    x-kong-upstream-defaults:
-      name: bookinfo-reviews
-      targets:
-        - target: reviews.bookinfo.svc.cluster.local:9080
-    x-kong-service-defaults:
-      name: bookinfo-reviews
-      protocol: http
-      connect_timeout: 60000
-      read_timeout: 60000
-      retries: 5
-  - name: rating
-    description: Rating information for a product
-    x-kong-upstream-defaults:
-      name: bookinfo-ratings
-      targets:
-        - target: ratings.bookinfo.svc.cluster.local:9080
-    x-kong-service-defaults:
-      name: bookinfo-ratings
-      protocol: http
-      connect_timeout: 60000
-      read_timeout: 60000
-      retries: 5
-  - name: detail
-    description: Detailed information for a product
-    x-kong-upstream-defaults:
-      name: bookinfo-details
-      targets:
-        - target: details.bookinfo.svc.cluster.local:9080
-    x-kong-service-defaults:
-      name: bookinfo-details
-      protocol: http
-      connect_timeout: 60000
-      read_timeout: 60000
-      retries: 5
 externalDocs:
   description: Learn more about the Istio BookInfo application
   url: https://istio.io/docs/samples/bookinfo.html
 paths:
   /products:
-    servers:
-      - url: http://productpage.bookinfo.svc.cluster.local:9080/api/v1
     get:
       tags:
         - product
@@ -85,8 +50,6 @@ paths:
                 items:
                   $ref: "#/components/schemas/Product"
   "/products/{id}":
-    servers:
-      - url: http://productpage.bookinfo.svc.cluster.local:9080/api/v1
     get:
       tags:
         - product
@@ -116,11 +79,9 @@ paths:
         "400":
           description: Invalid product id
   "/products/{id}/reviews":
-    servers:
-      - url: http://reviews.bookinfo.svc.cluster.local:9080/api/v1
     get:
       tags:
-        - review
+        - product
       summary: Get reviews for a product
       description: Get reviews for a product, including review text and possibly
         ratings information.
@@ -148,11 +109,9 @@ paths:
         "400":
           description: Invalid product id
   "/products/{id}/ratings":
-    servers:
-      - url: http://ratings.bookinfo.svc.cluster.local:9080/api/v1
     get:
       tags:
-        - rating
+        - product
       summary: Get ratings for a product
       description: Get ratings for a product, including stars and their color.
       operationId: getProductRatings
@@ -176,38 +135,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProductRatings"
-        "400":
-          description: Invalid product id
-
-  "/details/{id}":
-    servers:
-      - url: http://details.bookinfo.svc.cluster.local:9080
-    get:
-      tags:
-        - detail
-      summary: Get product details
-      description: Get detailed information about a product (e.g., publisher, ISBN).
-      operationId: getProductDetails
-      x-kong-route-defaults:
-        strip_path: false
-        preserve_host: false
-        path_handling: v1
-        regex_priority: 100
-      parameters:
-        - name: id
-          in: path
-          description: Product id
-          required: true
-          schema:
-            type: integer
-            format: int32
-      responses:
-        "200":
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProductDetails"
         "400":
           description: Invalid product id
 

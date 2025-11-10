@@ -21,3 +21,7 @@ tls.*
 *.crt
 *.key
 *.pem
+
+# Konnect tokens
+.konnect-token
+*konnect-token*
