@@ -20,6 +20,14 @@ tags:
       connect_timeout: 60000
       read_timeout: 60000
       retries: 5
+    x-kong-plugin-prometheus:
+      enabled: true
+      config:
+        per_consumer: false
+        status_code_metrics: true
+        latency_metrics: true
+        bandwidth_metrics: true
+        upstream_health_metrics: true
   - name: review
     description: Review information for a product
     x-kong-upstream-defaults:
@@ -32,6 +40,14 @@ tags:
       connect_timeout: 60000
       read_timeout: 60000
       retries: 5
+    x-kong-plugin-prometheus:
+      enabled: true
+      config:
+        per_consumer: false
+        status_code_metrics: true
+        latency_metrics: true
+        bandwidth_metrics: true
+        upstream_health_metrics: true
   - name: rating
     description: Rating information for a product
     x-kong-upstream-defaults:
@@ -44,6 +60,14 @@ tags:
       connect_timeout: 60000
       read_timeout: 60000
       retries: 5
+    x-kong-plugin-prometheus:
+      enabled: true
+      config:
+        per_consumer: false
+        status_code_metrics: true
+        latency_metrics: true
+        bandwidth_metrics: true
+        upstream_health_metrics: true
   - name: detail
     description: Detailed information for a product
     x-kong-upstream-defaults:
@@ -56,6 +80,14 @@ tags:
       connect_timeout: 60000
       read_timeout: 60000
       retries: 5
+    x-kong-plugin-prometheus:
+      enabled: true
+      config:
+        per_consumer: false
+        status_code_metrics: true
+        latency_metrics: true
+        bandwidth_metrics: true
+        upstream_health_metrics: true
 externalDocs:
   description: Learn more about the Istio BookInfo application
   url: https://istio.io/docs/samples/bookinfo.html
