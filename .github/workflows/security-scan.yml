@@ -19,6 +19,11 @@ on:
         default: "3.10"
         type: string
 
+permissions:
+  contents: read
+  packages: read
+  security-events: write
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ftuajii/bookinfo/kong-gateway
@@ -37,6 +42,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          elif [ "${{ inputs.image_tag }}" != "" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
           else
             echo "tag=3.10" >> $GITHUB_OUTPUT
           fi

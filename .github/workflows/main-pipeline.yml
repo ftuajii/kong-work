@@ -1,0 +1,37 @@
+name: Main CI/CD Pipeline
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - "kong/specs/openapi.yaml"
+            - "kong/configs/global-plugins.yaml"
+            - "kong/configs/service-plugins.yaml"
+            - ".github/workflows/security-scan.yml"
+            - ".github/workflows/publish-api-spec.yml"
+            - ".github/workflows/deploy-to-konnect.yml"
+            - ".github/workflows/main-pipeline.yml"
+    workflow_dispatch:
+
+jobs:
+    security-scan:
+        name: Security Scan
+        uses: ./.github/workflows/security-scan.yml
+        secrets: inherit
+        permissions:
+            contents: read
+            packages: read
+            security-events: write
+
+    publish-api-spec:
+        name: Publish API Spec
+        needs: security-scan
+        uses: ./.github/workflows/publish-api-spec.yml
+        secrets: inherit
+
+    deploy-to-konnect:
+        name: Deploy to Konnect
+        needs: security-scan
+        uses: ./.github/workflows/deploy-to-konnect.yml
+        secrets: inherit
