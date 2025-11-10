@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "🚀 Kong Konnect環境のセットアップを開始します..."
-echo "   (クラスター基盤 + Kong DP + Bookinfo + モニタリング)"
+echo "   (クラスター基盤 + モニタリング + Kong DP + Bookinfo)"
 echo ""
 
 # 1. kindクラスター作成
@@ -33,28 +33,28 @@ sleep 10  # webhook serviceの起動を待つ
 
 kubectl apply -f "$ROOT_DIR/infrastructure/metallb-config.yaml"
 
-# 4. Kong namespace と証明書作成
+# 4. モニタリングスタックデプロイ (個別スクリプト呼び出し)
 echo ""
-echo "📦 Step 4/7: Kong namespaceと証明書を作成中..."
+echo "📦 Step 4/7: モニタリングスタック(Prometheus + Grafana)をセットアップ中..."
+"$SCRIPT_DIR/setup-monitoring.sh"
+
+# 5. Kong namespace と証明書作成
+echo ""
+echo "📦 Step 5/7: Kong namespaceと証明書を作成中..."
 kubectl create namespace kong
 kubectl create secret tls kong-cluster-cert -n kong \
   --cert="$ROOT_DIR/kong/secrets/tls.crt" \
   --key="$ROOT_DIR/kong/secrets/tls.key"
 
-# 5. Kong DPデプロイ (個別スクリプト呼び出し)
+# 6. Kong DPデプロイ (個別スクリプト呼び出し)
 echo ""
-echo "📦 Step 5/7: Kong DPをデプロイ中..."
+echo "📦 Step 6/7: Kong DPをデプロイ中..."
 "$SCRIPT_DIR/start-kong.sh"
 
-# 6. Bookinfo アプリケーションデプロイ (個別スクリプト呼び出し)
+# 7. Bookinfo アプリケーションデプロイ (個別スクリプト呼び出し)
 echo ""
-echo "📦 Step 6/7: Bookinfo アプリケーションをデプロイ中..."
+echo "📦 Step 7/7: Bookinfo アプリケーションをデプロイ中..."
 "$SCRIPT_DIR/deploy-bookinfo.sh"
-
-# 7. モニタリングスタックデプロイ (個別スクリプト呼び出し)
-echo ""
-echo "📦 Step 7/7: モニタリングスタック(Prometheus + Grafana)をセットアップ中..."
-"$SCRIPT_DIR/setup-monitoring.sh"
 
 # 完了確認
 echo ""

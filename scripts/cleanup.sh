@@ -6,22 +6,22 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "🗑️  Kong Konnect環境を削除中..."
-echo "   (モニタリング + Bookinfo + Kong DP + クラスター基盤)"
+echo "   (Bookinfo + Kong DP + モニタリング + クラスター基盤)"
 echo ""
 
-# 1. モニタリングスタック削除 (個別スクリプト呼び出し)
-echo "📦 モニタリングスタックを削除中..."
-"$SCRIPT_DIR/cleanup-monitoring.sh" 2>/dev/null || echo "  (モニタリングは存在しません)"
-
-# 2. Bookinfo アプリケーション削除 (個別スクリプト呼び出し)
-echo ""
+# 1. Bookinfo アプリケーション削除 (個別スクリプト呼び出し)
 echo "📦 Bookinfo アプリケーションを削除中..."
 "$SCRIPT_DIR/cleanup-bookinfo.sh" 2>/dev/null || echo "  (Bookinfoは存在しません)"
 
-# 3. Kong DP削除 (個別スクリプト呼び出し)
+# 2. Kong DP削除 (個別スクリプト呼び出し)
 echo ""
 echo "📦 Kong DPを削除中..."
 "$SCRIPT_DIR/stop-kong.sh" 2>/dev/null || echo "  (Kong DPは存在しません)"
+
+# 3. モニタリングスタック削除 (個別スクリプト呼び出し)
+echo ""
+echo "📦 モニタリングスタックを削除中..."
+"$SCRIPT_DIR/cleanup-monitoring.sh" 2>/dev/null || echo "  (モニタリングは存在しません)"
 
 # 4. Kong namespace削除
 echo ""
