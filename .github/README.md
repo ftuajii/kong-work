@@ -6,7 +6,7 @@
 
 **Single Source of Truth: `kong/specs/openapi.yaml`**
 
-OpenAPI 仕様を変更すると、自動的に Kong 設定が生成され、Konnect にデプロイされます。
+OpenAPI 仕様を変更すると、自動的にセキュリティスキャン → API Spec 公開 → Kong 設定デプロイが実行されます。
 
 ```
 OpenAPI 仕様の変更 (kong/specs/openapi.yaml)
@@ -15,7 +15,13 @@ OpenAPI 仕様の変更 (kong/specs/openapi.yaml)
          ↓
    GitHub Actions トリガー
          ↓
+security-scan.yml (コンテナセキュリティスキャン)
+         ↓ (成功時のみ)
+publish-api-spec.yml (Dev Portal に公開)
+         ↓
 deck file openapi2kong (Kong 設定生成)
+         ↓
+deck file add-plugins (プラグイン追加)
          ↓
 deck gateway sync (Konnect デプロイ)
          ↓
@@ -30,26 +36,19 @@ deck gateway sync (Konnect デプロイ)
 
 リポジトリの Settings → Secrets and variables → Actions で以下の Secret を追加:
 
-| Secret 名       | 説明                           | 取得方法                                  |
-| --------------- | ------------------------------ | ----------------------------------------- |
-| `KONNECT_ADDR`  | Konnect Control Plane アドレス | 例: `https://b9b1351cc2.us.cp.konghq.com` |
-| `KONNECT_TOKEN` | Konnect Personal Access Token  | [取得手順](#konnect-tokenの取得)          |
-
-#### KONNECT_ADDR の確認
-
-1. Konnect UI → Gateway Manager → 使用している Control Plane を選択
-2. **Data Plane Nodes** タブ → **New Data Plane Node** をクリック
-3. **Step 2: Generate Certificates** に表示される `cluster_control_plane` の値
-   - 例: `b9b1351cc2.us.cp.konghq.com:443`
-4. `https://` をつけて GitHub Secrets に保存
-   - 例: `https://b9b1351cc2.us.cp.konghq.com`
+| Secret 名                    | 説明                           | 取得方法                         |
+| ---------------------------- | ------------------------------ | -------------------------------- |
+| `KONNECT_TOKEN`              | Konnect Personal Access Token  | [取得手順](#konnect-tokenの取得) |
+| `KONNECT_CONTROL_PLANE_NAME` | Control Plane 名               | 例: `kong-work`                  |
+| `API_PRODUCT_ID`             | API Product ID (Dev Portal 用) | Konnect UI で確認                |
+| `VERSION_ID`                 | API Product Version ID         | Konnect UI で確認                |
 
 #### KONNECT_TOKEN の取得
 
 1. https://cloud.konghq.com/ にアクセス
 2. 右上のアイコン → **Personal Access Tokens**
 3. **Generate Token** をクリック
-4. トークン名を入力（例: `github-actions-deploy`）
+4. トークン名を入力（例: `github-actions`）
 5. 生成されたトークンをコピー
 6. GitHub Secrets に `KONNECT_TOKEN` として保存
 
@@ -57,26 +56,84 @@ deck gateway sync (Konnect デプロイ)
 
 ## 🔄 ワークフロー
 
-### ワークフロー 1: `deploy-to-konnect.yml`
+### ワークフロー概要
+
+このプロジェクトには 3 つのワークフローがあり、依存関係を持って実行されます:
+
+1. **`security-scan.yml`** - コンテナセキュリティスキャン (最初に実行)
+2. **`publish-api-spec.yml`** - API Spec 公開 (スキャン成功後)
+3. **`deploy-to-konnect.yml`** - Kong 設定デプロイ (スキャン成功後)
+
+---
+
+### ワークフロー 1: `security-scan.yml`
+
+**目的:** Kong Gateway イメージの脆弱性スキャン
 
 **トリガー条件:**
 
-- `kong/specs/openapi.yaml` が `main` ブランチに push された時
-- `.github/workflows/deploy-to-konnect.yml` 自体が変更された時
+- 他のワークフローから `workflow_call` で呼び出し
+- 定期実行: 毎週月曜 9:00 JST (00:00 UTC)
+- 手動実行: Actions → "Container Security Scan"
 
 **実行ステップ:**
 
 1. **Checkout**: コードをチェックアウト
-2. **Setup deck**: deck CLI (v1.49.2) をインストール
-3. **Generate Kong config**: `deck file openapi2kong` で Kong 設定を生成
-4. **Validate**: 生成された設定ファイルの妥当性チェック
-5. **Show diff**: 変更内容をプレビュー（Dry-run）
-6. **Deploy**: Konnect へ設定を同期
-7. **Success**: デプロイ成功メッセージ
+2. **Pull image**: Kong Gateway イメージを取得
+3. **Trivy scan**: CRITICAL/HIGH/MEDIUM 脆弱性をスキャン
+4. **Upload SARIF**: GitHub Security タブに結果をアップロード
+5. **Summary**: スキャン結果サマリーを表示
+
+**スキャン対象:**
+
+- イメージ: `ghcr.io/ftuajii/bookinfo/kong-gateway:3.10`
+
+---
+
+### ワークフロー 2: `publish-api-spec.yml`
+
+**目的:** OpenAPI 仕様を Konnect Dev Portal に公開
+
+**トリガー条件:**
+
+- `kong/specs/openapi.yaml` が `main` ブランチに push された時
+- 手動実行: Actions → "Publish API Spec to Konnect Dev Portal"
+
+**実行ステップ:**
+
+1. **Security Scan**: セキュリティスキャンを実行 (失敗時は中断)
+2. **Checkout**: コードをチェックアウト
+3. **Validate**: OpenAPI 仕様の検証
+4. **Publish**: Konnect Dev Portal に公開
+
+---
+
+### ワークフロー 3: `deploy-to-konnect.yml`
+
+**目的:** Kong 設定を Konnect にデプロイ
+
+**トリガー条件:**
+
+- `kong/specs/openapi.yaml` が `main` ブランチに push された時
+- `kong/configs/global-plugins.yaml` が変更された時
+- `kong/configs/service-plugins.yaml` が変更された時
+- 手動実行可能
+
+**実行ステップ:**
+
+1. **Security Scan**: セキュリティスキャンを実行 (失敗時は中断)
+2. **Checkout**: コードをチェックアウト
+3. **Setup deck**: deck CLI (v1.49.2) をインストール
+4. **Generate Kong config**: `deck file openapi2kong` で Kong 設定を生成
+5. **Add plugins**: `deck file add-plugins` でサービスプラグインを追加
+6. **Show diff**: 変更内容をプレビュー（Dry-run）
+7. **Deploy**: Konnect へ設定を同期
 
 **デプロイされるファイル:**
 
-- `kong/configs/bookinfo-kong-generated.yaml` (自動生成)
+- `kong/configs/generated-kong.yaml` (自動生成)
+- `kong/configs/service-plugins.yaml` (手動管理)
+- `kong/configs/final-kong.yaml` (自動生成、デプロイ用)
 - `kong/configs/global-plugins.yaml` (手動管理)
 
 ---
@@ -114,6 +171,7 @@ git push origin feature/add-ratings-api
 
 # 5. Pull Request作成 → レビュー → Merge
 # Mergeされた時点でGitHub Actionsが自動実行される
+# 1. セキュリティスキャン → 2. API Spec公開 → 3. Kong設定デプロイ
 ```
 
 ---
@@ -145,7 +203,35 @@ git push origin feature/add-rate-limiting
 # 5. Pull Request作成 → レビュー → Merge
 ```
 
-**注意:** `global-plugins.yaml` の変更は自動デプロイされません。`openapi.yaml` も一緒に変更するか、手動で `deck gateway sync` を実行してください。
+---
+
+### 3. サービスレベルプラグインを追加
+
+```bash
+# 1. ブランチを作成
+git checkout -b feature/add-service-rate-limiting
+
+# 2. service-plugins.yaml を編集
+vim kong/configs/service-plugins.yaml
+
+# 例: Rate Limiting プラグインを追加
+# add-plugins:
+#   - selectors:
+#       - $..services[*]
+#     plugins:
+#       - name: rate-limiting
+#         config:
+#           second: 100
+#           limit_by: ip
+
+# 3. Commit & Push
+git add kong/configs/service-plugins.yaml
+git commit -m "feat: Add rate-limiting to services"
+git push origin feature/add-service-rate-limiting
+
+# 4. Pull Request作成 → レビュー → Merge
+# Mergeされると自動デプロイ
+```
 
 ---
 

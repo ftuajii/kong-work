@@ -86,24 +86,46 @@ graph TB
 ```mermaid
 sequenceDiagram
     participant Dev as 開発者
+    participant GitHub as GitHub
+    participant Actions as GitHub Actions
+    participant Security as Security Scan
     participant OpenAPI as kong/specs/openapi.yaml
     participant Deck as deck CLI
-    participant Generated as kong/generated-kong.yaml
+    participant ServicePlugins as service-plugins.yaml
+    participant Generated as generated-kong.yaml
+    participant Final as final-kong.yaml
     participant Konnect as Kong Konnect CP
+    participant Portal as Dev Portal
     participant DP as Kong Data Plane
 
     Dev->>OpenAPI: 1. API仕様を編集
     Note over OpenAPI: Single Source of Truth<br/>productpage /api/v1/* のみ
 
-    Dev->>Deck: 2. deck file openapi2kong
-    Deck->>OpenAPI: openapi.yaml読み込み
-    OpenAPI->>Generated: 自動生成<br/>単一service + 4 routes
+    Dev->>GitHub: 2. Push to main
+    GitHub->>Actions: トリガー
 
-    Dev->>Deck: 3. deck gateway sync
-    Deck->>Konnect: --konnect-control-plane-name<br/>--konnect-token-file
+    Actions->>Security: 3. セキュリティスキャン
+    Note over Security: Kong Gateway<br/>イメージの脆弱性チェック
+    Security-->>Actions: ✅ スキャン成功
+
+    Actions->>Portal: 4. API Spec公開
+    Portal->>OpenAPI: openapi.yaml読み込み
+    Note over Portal: Dev Portalに公開
+
+    Actions->>Deck: 5. deck file openapi2kong
+    Deck->>OpenAPI: openapi.yaml読み込み
+    OpenAPI->>Generated: 自動生成<br/>service + routes
+
+    Actions->>Deck: 6. deck file add-plugins
+    Deck->>ServicePlugins: service-plugins.yaml読み込み
+    Deck->>Generated: プラグイン追加
+    Generated->>Final: 最終設定ファイル
+
+    Actions->>Deck: 7. deck gateway sync
+    Deck->>Konnect: final-kong.yaml<br/>+ global-plugins.yaml
     Note over Konnect: 設定を自動更新
 
-    Konnect-->>DP: 4. mTLS経由で配信
+    Konnect-->>DP: 8. mTLS経由で配信
     Note over DP: 即座にルーティング開始
 ```
 
@@ -170,6 +192,69 @@ graph LR
     style PromOp fill:#e8f5e9
     style Prom fill:#e8f5e9
     style Grafana fill:#e8f5e9
+```
+
+## CI/CD パイプライン
+
+```mermaid
+graph TB
+    subgraph "トリガー"
+        Push[OpenAPI変更<br/>Push to main]
+        Schedule[定期実行<br/>毎週月曜 9:00 JST]
+        Manual[手動実行<br/>workflow_dispatch]
+    end
+
+    subgraph "GitHub Actions"
+        subgraph "security-scan.yml"
+            Scan[コンテナスキャン<br/>Trivy]
+            ScanCheck{脆弱性<br/>チェック}
+            ScanResult[GitHub Security<br/>SARIF Upload]
+        end
+
+        subgraph "publish-api-spec.yml"
+            Validate[OpenAPI検証]
+            Publish[Dev Portal公開]
+        end
+
+        subgraph "deploy-to-konnect.yml"
+            OpenAPI2Kong[deck file<br/>openapi2kong]
+            AddPlugins[deck file<br/>add-plugins]
+            Diff[deck gateway<br/>diff]
+            Sync[deck gateway<br/>sync]
+        end
+    end
+
+    subgraph "成果物"
+        DevPortal[Dev Portal<br/>API仕様公開]
+        KonnectCP[Konnect CP<br/>サービス・ルート<br/>プラグイン]
+        SecurityTab[GitHub Security<br/>脆弱性レポート]
+    end
+
+    Push --> Scan
+    Schedule --> Scan
+    Manual --> Scan
+
+    Scan --> ScanCheck
+    ScanCheck -->|✅ 成功| Validate
+    ScanCheck -->|❌ 失敗| ScanResult
+    ScanCheck --> ScanResult
+
+    Validate --> Publish
+    Publish --> DevPortal
+
+    ScanCheck -->|✅ 成功| OpenAPI2Kong
+    OpenAPI2Kong --> AddPlugins
+    AddPlugins --> Diff
+    Diff --> Sync
+    Sync --> KonnectCP
+
+    style Scan fill:#ffe0b2
+    style ScanCheck fill:#ffe0b2
+    style Validate fill:#e1f5ff
+    style Publish fill:#e1f5ff
+    style OpenAPI2Kong fill:#fff4e6
+    style AddPlugins fill:#fff4e6
+    style Sync fill:#fff4e6
 ```
 
 ## デプロイ順序 (setup.sh)

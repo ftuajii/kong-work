@@ -27,10 +27,6 @@ jobs:
   scan-kong-image:
     name: Scan Kong Gateway Image
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-      security-events: write
 
     steps:
       - name: Checkout code

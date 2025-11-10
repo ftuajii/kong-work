@@ -58,7 +58,13 @@ export PUBLISH_VERSION='true'
 
 ##### 自動実行
 
-`kong/specs/openapi.yaml` を変更して `main` ブランチにプッシュすると、自動的に GitHub Actions が実行されます。
+`kong/specs/openapi.yaml` を変更して `main` ブランチにプッシュすると、以下の順で自動実行されます:
+
+1. **セキュリティスキャン** (`security-scan.yml`) - Kong Gateway イメージの脆弱性チェック
+2. **API Spec 公開** (`publish-api-spec.yml`) - Konnect Dev Portal に仕様を公開
+3. **Kong デプロイ** (`deploy-to-konnect.yml`) - サービスとルートを Konnect に反映
+
+**注意**: セキュリティスキャンが失敗すると、後続の API Spec 公開と Kong デプロイは実行されません。
 
 ##### 手動実行
 
@@ -131,7 +137,25 @@ export PUBLISH_VERSION='true'
 
 ### CI/CD パイプラインでの使用
 
-このスクリプトは、CI/CD パイプラインに組み込むことで、API 仕様の変更を自動的に Dev Portal に反映できます。
+このスクリプトは、CI/CD パイプラインに組み込まれており、API 仕様の変更を自動的に Dev Portal に反映します。
+
+**ワークフロー構成**:
+
+```
+OpenAPI変更 (kong/specs/openapi.yaml)
+    ↓
+セキュリティスキャン (security-scan.yml)
+    ↓ (成功時のみ)
+API Spec公開 (publish-api-spec.yml)
+    ↓
+Kong設定デプロイ (deploy-to-konnect.yml)
+```
+
+セキュリティスキャンは以下のタイミングで実行されます:
+
+- API Spec 公開と Kong デプロイの前に自動実行
+- 毎週月曜日 9:00 JST (定期実行)
+- 手動実行 (Actions → "Container Security Scan")
 
 ### バージョン管理
 

@@ -21,6 +21,10 @@ jobs:
   security-scan:
     name: Security Scan
     uses: ./.github/workflows/security-scan.yml
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
 
   publish-spec:
     name: Publish API Specification
