@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "kong/specs/openapi.yaml"
+      - "kong/configs/global-plugins.yaml"
   workflow_dispatch:
 
 jobs:
@@ -44,7 +45,8 @@ jobs:
           deck gateway diff \
             --konnect-token "$KONNECT_TOKEN" \
             --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
-            kong/configs/bookinfo-kong-generated.yaml || true
+            kong/configs/bookinfo-kong-generated.yaml \
+            kong/configs/global-plugins.yaml || true
 
       - name: Deploy to Konnect
         env:
@@ -55,7 +57,8 @@ jobs:
           deck gateway sync \
             --konnect-token "$KONNECT_TOKEN" \
             --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME" \
-            kong/configs/bookinfo-kong-generated.yaml
+            kong/configs/bookinfo-kong-generated.yaml \
+            kong/configs/global-plugins.yaml
 
       - name: Deployment success
         run: |
