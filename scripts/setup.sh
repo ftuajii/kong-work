@@ -33,18 +33,18 @@ sleep 10  # webhook serviceの起動を待つ
 
 kubectl apply -f "$ROOT_DIR/infrastructure/metallb-config.yaml"
 
-# 4. モニタリングスタックデプロイ (個別スクリプト呼び出し)
+# 4. Kong namespace と証明書作成
 echo ""
-echo "📦 Step 4/7: モニタリングスタック(Prometheus + Grafana)をセットアップ中..."
-"$SCRIPT_DIR/setup-monitoring.sh"
-
-# 5. Kong namespace と証明書作成
-echo ""
-echo "📦 Step 5/7: Kong namespaceと証明書を作成中..."
+echo "📦 Step 4/7: Kong namespaceと証明書を作成中..."
 kubectl create namespace kong
 kubectl create secret tls kong-cluster-cert -n kong \
   --cert="$ROOT_DIR/kong/secrets/tls.crt" \
   --key="$ROOT_DIR/kong/secrets/tls.key"
+
+# 5. モニタリングスタックデプロイ (個別スクリプト呼び出し)
+echo ""
+echo "📦 Step 5/7: モニタリングスタック(Prometheus + Grafana)をセットアップ中..."
+"$SCRIPT_DIR/setup-monitoring.sh"
 
 # 6. Kong DPデプロイ (個別スクリプト呼び出し)
 echo ""
