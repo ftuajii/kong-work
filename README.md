@@ -245,8 +245,9 @@ Namespace: monitoring
 │   │   └── openapi.yaml      # ⭐ Bookinfo API仕様 (Kong設定の単一情報源)
 │   └── configs/              # Kong設定ファイル
 │       ├── generated-kong.yaml    # OpenAPIから生成された基本設定
-│       ├── service-plugins.yaml   # サービスプラグイン定義 (rate-limiting)
+│       ├── service-plugins.yaml   # サービスプラグイン定義 (rate-limiting, key-auth)
 │       ├── global-plugins.yaml    # グローバルプラグイン (prometheus, file-log)
+│       ├── consumers.yaml         # API Consumer定義 (key-auth認証情報)
 │       └── final-kong.yaml        # 最終的なKong設定 (Konnectデプロイ用)
 ├── bookinfo/                 # Bookinfo アプリケーション
 │   └── bookinfo-deployment.yaml  # Kubernetes Deployment/Service定義
@@ -264,7 +265,8 @@ Namespace: monitoring
 │   ├── setup-monitoring.sh   # モニタリングセットアップ
 │   ├── cleanup-monitoring.sh # モニタリング削除
 │   ├── send-test-requests.sh # テストトラフィック生成 (Grafana用)
-│   └── export-konnect-config.sh  # Konnect設定エクスポート
+│   ├── sync-config.sh        # Kong設定同期 (ローカル→Konnect)
+│   └── export-konnect-config.sh  # Konnect設定エクスポート (Konnect→ローカル)
 ├── .github/
 │   └── workflows/
 │       ├── main-pipeline.yml          # メインCI/CDパイプライン (エントリーポイント)
@@ -495,6 +497,43 @@ Namespace: monitoring
 
 # Grafana で以下のクエリを実行してメトリクスを確認
 # sum(rate(kong_http_requests_total[1m])) by (code)
+```
+
+---
+
+### `scripts/sync-config.sh`
+
+**ローカルの Kong 設定を Konnect に同期します。**
+
+**処理内容:**
+
+1. OpenAPI 仕様から Kong 設定を生成 (`openapi2kong`)
+2. プラグイン設定を追加 (`add-plugins`)
+3. Konnect に同期 (`gateway sync`)
+
+**同期される設定:**
+
+- サービス・ルート (`final-kong.yaml`)
+- グローバルプラグイン (`global-plugins.yaml`)
+- コンシューマー (`consumers.yaml`)
+
+**使用場面:**
+
+- OpenAPI 仕様を変更した後
+- プラグイン設定を変更した後
+- Consumer を追加/変更した後
+
+**所要時間:** 約 5-10 秒
+
+**使用例:**
+
+```bash
+# 環境変数を設定
+export KONNECT_TOKEN='your-konnect-token'
+export KONNECT_CONTROL_PLANE_NAME='default'
+
+# 同期実行
+./scripts/sync-config.sh
 ```
 
 ---

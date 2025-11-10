@@ -167,6 +167,7 @@ security-scan (1回実行)
 - `kong/configs/service-plugins.yaml` (手動管理)
 - `kong/configs/final-kong.yaml` (自動生成、デプロイ用)
 - `kong/configs/global-plugins.yaml` (手動管理)
+- `kong/configs/consumers.yaml` (手動管理)
 
 ---
 
@@ -253,7 +254,7 @@ vim kong/configs/service-plugins.yaml
 #     plugins:
 #       - name: rate-limiting
 #         config:
-#           second: 100
+#           minute: 200
 #           limit_by: ip
 
 # 3. Commit & Push
@@ -267,7 +268,33 @@ git push origin feature/add-service-rate-limiting
 
 ---
 
-### 3. デプロイ結果の確認
+### 4. Consumer と認証情報を追加
+
+```bash
+# 1. ブランチを作成
+git checkout -b feature/add-consumer
+
+# 2. consumers.yaml を編集
+vim kong/configs/consumers.yaml
+
+# 例: 新しいConsumerを追加
+# consumers:
+#   - username: new-user
+#     custom_id: new-user-001
+#     keyauth_credentials:
+#       - key: new-api-key-xyz
+
+# 3. Commit & Push
+git add kong/configs/consumers.yaml
+git commit -m "feat: Add new consumer for API access"
+git push origin feature/add-consumer
+
+# 4. Pull Request作成 → レビュー → Merge
+```
+
+---
+
+### 5. デプロイ結果の確認
 
 **GitHub Actions:**
 

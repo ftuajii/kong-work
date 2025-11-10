@@ -391,6 +391,35 @@ graph TB
 | MetalLB Controller | Deployment | metallb-system | -      | IP 割り当て  |
 | MetalLB Speaker    | DaemonSet  | metallb-system | -      | ARP/NDP 応答 |
 
+## Kong プラグイン構成
+
+### グローバルプラグイン (`global-plugins.yaml`)
+
+すべてのサービス・ルートに適用されるプラグイン:
+
+| プラグイン名 | 用途                     | 設定                            |
+| ------------ | ------------------------ | ------------------------------- |
+| prometheus   | メトリクス収集           | bandwidth, latency, status_code |
+| file-log     | アクセスログファイル出力 | /tmp/file.log (JSON 形式)       |
+
+### サービスプラグイン (`service-plugins.yaml`)
+
+bookinfo-api サービスにのみ適用されるプラグイン:
+
+| プラグイン名  | 用途         | 設定                                |
+| ------------- | ------------ | ----------------------------------- |
+| rate-limiting | レート制限   | 200 req/min (≈100 req/30sec) per IP |
+| key-auth      | API キー認証 | Header: `apikey`                    |
+
+### Consumer 定義 (`consumers.yaml`)
+
+API アクセス用の Consumer とその認証情報:
+
+| Username  | Custom ID     | API Key                 |
+| --------- | ------------- | ----------------------- |
+| test-user | test-user-001 | my-secret-api-key-12345 |
+| demo-user | demo-user-001 | demo-api-key-67890      |
+
 ## メトリクス例
 
 Kong が収集するメトリクス（ServiceMonitor 経由で Prometheus に送信）:

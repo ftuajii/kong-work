@@ -5,8 +5,13 @@ add-plugins:
     plugins:
       - name: rate-limiting
         config:
-          second: 100
+          minute: 200 # 1分で200回 (≈30秒で100回)
           limit_by: ip
           policy: local
           fault_tolerant: true
           hide_client_headers: false
+      - name: key-auth
+        config:
+          key_names:
+            - apikey
+          hide_credentials: false

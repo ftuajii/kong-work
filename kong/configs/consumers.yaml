@@ -1,0 +1,9 @@
+consumers:
+  - username: test-user
+    custom_id: test-user-001
+    keyauth_credentials:
+      - key: my-secret-api-key-12345
+  - username: demo-user
+    custom_id: demo-user-001
+    keyauth_credentials:
+      - key: demo-api-key-67890

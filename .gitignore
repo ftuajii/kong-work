@@ -14,9 +14,7 @@ Thumbs.db
 *.bak
 
 # Certificates and secrets
-kong/secrets/*.crt
-kong/secrets/*.key
-kong/secrets/*.pem
+kong/secrets
 tls.*
 *.crt
 *.key

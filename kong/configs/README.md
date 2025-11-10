@@ -7,9 +7,10 @@
 ```
 kong/configs/
 ├── generated-kong.yaml      # ← deck file openapi2kong で自動生成
-├── service-plugins.yaml     # サービスプラグイン定義 (deck file add-plugins用)
+├── service-plugins.yaml     # サービスプラグイン定義 (rate-limiting, key-auth)
 ├── final-kong.yaml         # プラグイン追加後の最終設定 (Konnectデプロイ用)
 ├── global-plugins.yaml      # グローバルプラグイン (Prometheus など)
+├── consumers.yaml           # API Consumer定義 (key-auth認証情報)
 └── README.md                # このファイル
 ```
 
@@ -33,6 +34,8 @@ kong/configs/generated-kong.yaml (基本設定)
 kong/configs/final-kong.yaml (プラグイン追加後)
          +
 kong/configs/global-plugins.yaml (手動管理)
+         +
+kong/configs/consumers.yaml (手動管理)
          ↓
   deck gateway sync
          ↓
@@ -50,6 +53,7 @@ kong/configs/global-plugins.yaml (手動管理)
 | `service-plugins.yaml` | サービスプラグイン定義     | ✅ 手動編集            |
 | `final-kong.yaml`      | プラグイン追加後の最終設定 | ❌ 自動生成 (編集禁止) |
 | `global-plugins.yaml`  | グローバルプラグイン       | ✅ 手動編集            |
+| `consumers.yaml`       | Consumer/認証情報定義      | ✅ 手動編集            |
 
 ## 🔄 ワークフロー
 
@@ -87,34 +91,54 @@ paths:
 
 **設定ファイル生成とデプロイ:**
 
+**推奨: スクリプトを使用 (すべて自動化)**
+
+```bash
+./scripts/sync-config.sh
+```
+
+このスクリプトは以下を実行します:
+
+1. `deck file openapi2kong` で Kong 設定を生成
+2. `deck file add-plugins` でプラグインを追加
+3. `deck gateway sync` で Konnect に同期 (consumers.yaml も含む)
+
+**手動実行する場合:**
+
 ```bash
 cd kong/specs
 deck file openapi2kong \
   --spec openapi.yaml \
-  --output-file ../configs/bookinfo-kong-generated.yaml
+  --output-file ../configs/generated-kong.yaml
 ```
 
 **Step 3: 設定を検証**
 
 ```bash
 cd kong/configs
-deck file validate bookinfo-kong-generated.yaml global-plugins.yaml
+deck file validate final-kong.yaml global-plugins.yaml consumers.yaml
 ```
 
-**Step 4: Konnect にデプロイ (差分確認)**
+**Step 4: Konnect にデプロイ (推奨: スクリプト使用)**
 
 ```bash
-deck gateway diff bookinfo-kong-generated.yaml global-plugins.yaml \
-  --konnect-addr https://b9b1351cc2.us.cp.konghq.com \
-  --konnect-token $KONNECT_TOKEN
+./scripts/sync-config.sh
 ```
 
-**Step 5: Konnect にデプロイ (適用)**
+**Step 4 (手動): Konnect にデプロイ (差分確認)**
 
 ```bash
-deck gateway sync bookinfo-kong-generated.yaml global-plugins.yaml \
-  --konnect-addr https://b9b1351cc2.us.cp.konghq.com \
-  --konnect-token $KONNECT_TOKEN
+deck gateway diff final-kong.yaml global-plugins.yaml consumers.yaml \
+  --konnect-token $KONNECT_TOKEN \
+  --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME"
+```
+
+**Step 5 (手動): Konnect にデプロイ (適用)**
+
+```bash
+deck gateway sync final-kong.yaml global-plugins.yaml consumers.yaml \
+  --konnect-token $KONNECT_TOKEN \
+  --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME"
 ```
 
 ---
@@ -150,10 +174,16 @@ plugins:
 **Step 2: Konnect にデプロイ**
 
 ```bash
+./scripts/sync-config.sh
+```
+
+または手動:
+
+```bash
 cd kong/configs
-deck gateway sync bookinfo-kong-generated.yaml global-plugins.yaml \
-  --konnect-addr https://b9b1351cc2.us.cp.konghq.com \
-  --konnect-token $KONNECT_TOKEN
+deck gateway sync final-kong.yaml global-plugins.yaml consumers.yaml \
+  --konnect-token $KONNECT_TOKEN \
+  --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME"
 ```
 
 ---
@@ -172,7 +202,7 @@ deck gateway sync bookinfo-kong-generated.yaml global-plugins.yaml \
 
 ```bash
 cd kong/configs
-diff bookinfo-kong-generated.yaml konnect-export.yaml
+diff generated-kong.yaml konnect-export.yaml
 ```
 
 ---
@@ -202,10 +232,11 @@ diff bookinfo-kong-generated.yaml konnect-export.yaml
 - name: Sync to Konnect
   run: |
     deck gateway sync \
-      kong/configs/bookinfo-kong-generated.yaml \
+      kong/configs/final-kong.yaml \
       kong/configs/global-plugins.yaml \
-      --konnect-addr ${{ secrets.KONNECT_ADDR }} \
-      --konnect-token ${{ secrets.KONNECT_TOKEN }}
+      kong/configs/consumers.yaml \
+      --konnect-token ${{ secrets.KONNECT_TOKEN }} \
+      --konnect-control-plane-name ${{ secrets.KONNECT_CONTROL_PLANE_NAME }}
 ```
 
 ---
@@ -317,9 +348,9 @@ deck file openapi2kong --spec kong/specs/openapi.yaml
 
 ```bash
 # 差分確認
-deck gateway diff bookinfo-kong-generated.yaml global-plugins.yaml \
-  --konnect-addr https://b9b1351cc2.us.cp.konghq.com \
-  --konnect-token $KONNECT_TOKEN
+deck gateway diff final-kong.yaml global-plugins.yaml consumers.yaml \
+  --konnect-token $KONNECT_TOKEN \
+  --konnect-control-plane-name "$KONNECT_CONTROL_PLANE_NAME"
 
 # エラーメッセージを確認
 ```
@@ -334,13 +365,13 @@ deck gateway diff bookinfo-kong-generated.yaml global-plugins.yaml \
 
 ```bash
 # 生成されたファイルを確認
-cat kong/configs/bookinfo-kong-generated.yaml
+cat kong/configs/generated-kong.yaml
 
 # Services の数を確認
-yq eval '.services | length' kong/configs/bookinfo-kong-generated.yaml
+yq eval '.services | length' kong/configs/generated-kong.yaml
 
 # Service 名のリストを確認
-yq eval '.services[].name' kong/configs/bookinfo-kong-generated.yaml
+yq eval '.services[].name' kong/configs/generated-kong.yaml
 ```
 
 ---
@@ -356,23 +387,26 @@ yq eval '.services[].name' kong/configs/bookinfo-kong-generated.yaml
 
 ## ⚠️ 重要な注意事項
 
-1. **`bookinfo-kong-generated.yaml` は手動編集禁止**
+1. **`generated-kong.yaml` と `final-kong.yaml` は手動編集禁止**
 
-   - 常に `deck file openapi2kong` で再生成してください
+   - 常に `deck file openapi2kong` と `deck file add-plugins` で再生成してください
+   - または `./scripts/sync-config.sh` を使用
    - 手動編集は次の生成時に上書きされます
 
 2. **関心の分離**
 
    - API 仕様: `openapi.yaml`
+   - サービスプラグイン: `service-plugins.yaml`
    - インフラストラクチャプラグイン: `global-plugins.yaml`
+   - 認証情報: `consumers.yaml`
    - 混在させないこと
 
 3. **`deck gateway sync` は完全上書き**
 
-   - 両ファイルを一緒に sync すること
+   - すべてのファイルを一緒に sync すること
    - 片方だけ sync すると設定が消える可能性あり
 
 4. **バージョン管理**
-   - `openapi.yaml` と `global-plugins.yaml` は Git で管理
-   - `bookinfo-kong-generated.yaml` も Git にコミット (自動生成の履歴追跡のため)
+   - `openapi.yaml`, `service-plugins.yaml`, `global-plugins.yaml`, `consumers.yaml` は Git で管理
+   - `generated-kong.yaml`, `final-kong.yaml` も Git にコミット (自動生成の履歴追跡のため)
    - `konnect-export.yaml` は `.gitignore` に含める (参考用のため)
