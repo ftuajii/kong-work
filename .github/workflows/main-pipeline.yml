@@ -10,14 +10,14 @@ on:
             - ".github/workflows/**"
 
 jobs:
-    # security-scan:
-    #     name: Security Scan
-    #     uses: ./.github/workflows/security-scan.yml
-    #     secrets: inherit
-    #     permissions:
-    #         contents: read
-    #         packages: read
-    #         security-events: write
+    security-scan:
+        name: Security Scan
+        uses: ./.github/workflows/security-scan.yml
+        secrets: inherit
+        permissions:
+            contents: read
+            packages: read
+            security-events: write
 
     publish-api-spec:
         name: Publish API Spec
@@ -27,6 +27,6 @@ jobs:
 
     deploy-to-konnect:
         name: Deploy to Konnect
-        # needs: security-scan
+        needs: publish-api-spec
         uses: ./.github/workflows/deploy-to-konnect.yml
         secrets: inherit
