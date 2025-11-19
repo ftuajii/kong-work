@@ -387,6 +387,29 @@ if [ "$VERSION_ERROR" = "404" ]; then
       echo "🔄 このVersionを更新します"
       VERSION_ID="$MATCHING_VERSION_ID"
       
+      # Current Versionを更新（既存バージョンを使用する場合）
+      echo ""
+      echo "🔄 APIのCurrent Versionを更新中..."
+      UPDATE_CURRENT_RESPONSE=$(curl -s -w "\n%{http_code}" \
+        -X PATCH \
+        "${KONNECT_API_ENDPOINT}/v3/apis/${API_PRODUCT_ID}" \
+        -H "Authorization: Bearer ${KONNECT_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "{\"version\": \"${SPEC_VERSION}\"}")
+      
+      UPDATE_CURRENT_STATUS=$(echo "$UPDATE_CURRENT_RESPONSE" | tail -n 1)
+      UPDATE_CURRENT_BODY=$(echo "$UPDATE_CURRENT_RESPONSE" | sed '$d')
+      
+      if [ "$UPDATE_CURRENT_STATUS" -ge 200 ] && [ "$UPDATE_CURRENT_STATUS" -lt 300 ]; then
+        UPDATED_VERSION=$(echo "$UPDATE_CURRENT_BODY" | jq -r '.version')
+        echo "✅ Current Versionを '$UPDATED_VERSION' に更新しました"
+        echo "   Dev Portalにも反映されます"
+      else
+        echo "⚠️  Current Version更新に失敗 (HTTP $UPDATE_CURRENT_STATUS)"
+        echo "📋 エラー詳細:"
+        echo "$UPDATE_CURRENT_BODY" | jq '.' || echo "$UPDATE_CURRENT_BODY"
+      fi
+      
       # 選択されたVersionを再確認
       EXISTING_VERSION=$(curl -s \
         -X GET \
@@ -636,30 +659,6 @@ else
   echo "📋 エラー詳細:"
   echo "$HTTP_BODY" | jq '.' || echo "$HTTP_BODY"
   exit 1
-fi
-
-echo ""
-
-# Current Versionの更新
-echo "🔄 APIのCurrent Versionを更新中..."
-UPDATE_CURRENT_RESPONSE=$(curl -s -w "\n%{http_code}" \
-  -X PATCH \
-  "${KONNECT_API_ENDPOINT}/v3/apis/${API_PRODUCT_ID}" \
-  -H "Authorization: Bearer ${KONNECT_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d "{\"version\": \"${SPEC_VERSION}\"}")
-
-UPDATE_CURRENT_STATUS=$(echo "$UPDATE_CURRENT_RESPONSE" | tail -n 1)
-UPDATE_CURRENT_BODY=$(echo "$UPDATE_CURRENT_RESPONSE" | sed '$d')
-
-if [ "$UPDATE_CURRENT_STATUS" -ge 200 ] && [ "$UPDATE_CURRENT_STATUS" -lt 300 ]; then
-  UPDATED_VERSION=$(echo "$UPDATE_CURRENT_BODY" | jq -r '.version')
-  echo "✅ Current Versionを '$UPDATED_VERSION' に更新しました"
-  echo "   Dev Portalにも反映されます"
-else
-  echo "⚠️  Current Version更新に失敗 (HTTP $UPDATE_CURRENT_STATUS)"
-  echo "📋 エラー詳細:"
-  echo "$UPDATE_CURRENT_BODY" | jq '.' || echo "$UPDATE_CURRENT_BODY"
 fi
 
 echo ""

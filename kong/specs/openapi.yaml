@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   description: This is the API of the Istio BookInfo sample application.
-  version: 1.0.2
+  version: 1.0.1
   title: BookInfo API
   termsOfService: https://istio.io/
   license:
@@ -19,8 +19,9 @@ externalDocs:
   url: https://istio.io/docs/samples/bookinfo.html
 
 servers:
-  - url: http://productpage.bookinfo.svc.cluster.local:9080/api/v1
-    description: BookInfo ProductPage API
+  - url: http://localhost:8000
+    description: Kong Gateway API (for developers)
+    x-kong-upstream-url: http://productpage.bookinfo.svc.cluster.local:9080/api/v1
 
 paths:
   /products:
