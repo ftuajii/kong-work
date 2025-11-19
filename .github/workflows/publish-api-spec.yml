@@ -57,7 +57,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📋 詳細" >> $GITHUB_STEP_SUMMARY
           echo "- **API ID/Name**: \`${API_PRODUCT_ID}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: \`${SPEC_VERSION}\` (openapi.yamlから自動取得)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: \`${SPEC_VERSION}\` (openapi.yamlから自動で取得)" >> $GITHUB_STEP_SUMMARY
           echo "- **Spec File**: \`kong/specs/openapi.yaml\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 リンク" >> $GITHUB_STEP_SUMMARY
