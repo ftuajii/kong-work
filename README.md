@@ -1,5 +1,17 @@
 # Kong Konnect + Bookinfo on Kubernetes (Kind)
 
+## 🆕 最新の更新 (2025 年 11 月 19 日)
+
+### Kong Konnect API v3 への移行完了
+
+- **API Spec 公開スクリプトを v3 に移行**
+  - エンドポイント: `/v2/api-products` → `/v3/apis`
+  - 自動作成機能実装 (API/Version 自動作成)
+  - Current Version 自動更新機能追加
+  - Python 依存削除 (yq 使用に変更)
+  - コード量 39%削減 (697 行 → 422 行)
+- **詳細**: [API_SPEC_PUBLISHING.md](docs/API_SPEC_PUBLISHING.md)
+
 ## 概要
 
 このプロジェクトは、Kong Konnect のデータプレーン(DP)と Bookinfo サンプルアプリケーションを Kubernetes (Kind) 上にデプロイし、API ゲートウェイとして Kong を活用する環境を提供します。
