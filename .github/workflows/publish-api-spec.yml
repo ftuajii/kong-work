@@ -39,7 +39,7 @@ jobs:
           KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
           API_PRODUCT_ID: ${{ secrets.API_PRODUCT_ID }}
           VERSION_ID: ${{ secrets.VERSION_ID }}
-          KONNECT_API_ENDPOINT: ${{ vars.KONNECT_API_ENDPOINT || 'https://us.api.konghq.com' }}
+          KONNECT_API_ENDPOINT: ${{ vars.KONNECT_API_ENDPOINT || 'https://us.api.konghq.com/v3' }}
           PUBLISH_VERSION: ${{ github.event.inputs.publish_version || 'false' }}
           SPEC_FILE: kong/specs/openapi.yaml
         run: |
