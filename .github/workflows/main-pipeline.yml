@@ -19,14 +19,14 @@ jobs:
             packages: read
             security-events: write
 
-    publish-api-spec:
-        name: Publish API Spec
-        # needs: security-scan
-        uses: ./.github/workflows/publish-api-spec.yml
-        secrets: inherit
-
     deploy-to-konnect:
         name: Deploy to Konnect
-        needs: publish-api-spec
+        # needs: security-scan
         uses: ./.github/workflows/deploy-to-konnect.yml
+        secrets: inherit
+
+    publish-api-spec:
+        name: Publish API Spec
+        needs: deploy-to-konnect
+        uses: ./.github/workflows/publish-api-spec.yml
         secrets: inherit
