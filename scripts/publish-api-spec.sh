@@ -351,8 +351,25 @@ if [ "$VERSION_ERROR" = "404" ]; then
       exit 1
     fi
   else
-    # 最新のVersionを自動選択するオプション
-    if [ "${AUTO_SELECT_VERSION:-false}" = "true" ]; then
+    # OpenAPI仕様からバージョンを取得
+    SPEC_VERSION=$(echo "$SPEC_CONTENT" | grep -E '^[[:space:]]*version[[:space:]]*:' | sed 's/.*:[[:space:]]*//' | tr -d '"' | tr -d "'" || echo "1.0.0")
+    echo ""
+    echo "📋 検出されたAPI仕様バージョン: $SPEC_VERSION"
+    
+    # 同じバージョン名のVersionが存在するかチェック
+    MATCHING_VERSION_ID=$(echo "$AVAILABLE_VERSIONS" | jq -r --arg version "$SPEC_VERSION" '.data[]? | select(.version == $version) | .id' | head -n 1)
+    
+    if [ -n "$MATCHING_VERSION_ID" ]; then
+      echo "✅ 既存のVersion '$SPEC_VERSION' (ID: $MATCHING_VERSION_ID) が見つかりました"
+      echo "🔄 このVersionを更新します"
+      VERSION_ID="$MATCHING_VERSION_ID"
+      
+      # 選択されたVersionを再確認
+      EXISTING_VERSION=$(curl -s \
+        -X GET \
+        "${KONNECT_API_ENDPOINT}/v3/apis/${API_PRODUCT_ID}/versions/${VERSION_ID}" \
+        -H "Authorization: Bearer ${KONNECT_TOKEN}")
+    elif [ "${AUTO_SELECT_VERSION:-false}" = "true" ]; then
       LATEST_VERSION_ID=$(echo "$AVAILABLE_VERSIONS" | jq -r '.data[0].id')
       echo ""
       echo "🔄 最新のVersion ID '${LATEST_VERSION_ID}' を自動選択しました"
@@ -365,11 +382,93 @@ if [ "$VERSION_ERROR" = "404" ]; then
         -H "Authorization: Bearer ${KONNECT_TOKEN}")
     else
       echo ""
-      echo "💡 以下のいずれかを実行してください:"
-      echo "   1. 正しいVersion IDを設定: export VERSION_ID='正しいVersion-ID'"
-      echo "   2. 最新Versionを自動選択: AUTO_SELECT_VERSION=true ./scripts/publish-api-spec.sh"
-      echo ""
-      exit 1
+      echo "🆕 Version '$SPEC_VERSION' が存在しないため、新しいVersionを作成します..."
+      
+      # JSON形式に変換（YAMLの場合）
+      if [[ "$SPEC_FILE" == *.yaml ]] || [[ "$SPEC_FILE" == *.yml ]]; then
+        echo "🔄 YAML to JSON変換中..."
+        
+        # yqコマンドでYAMLをJSONに変換
+        YQ_CMD=""
+        if command -v yq &> /dev/null; then
+          YQ_CMD="yq"
+        elif [ -f "/opt/homebrew/bin/yq" ]; then
+          YQ_CMD="/opt/homebrew/bin/yq"
+        elif [ -f "/usr/local/bin/yq" ]; then
+          YQ_CMD="/usr/local/bin/yq"
+        else
+          echo "❌ yqコマンドが見つかりません"
+          echo "💡 インストール: brew install yq"
+          exit 1
+        fi
+        
+        SPEC_JSON=$($YQ_CMD -o=json '.' "$SPEC_FILE" | jq -c '.')
+        
+        if [ -z "$SPEC_JSON" ]; then
+          echo "❌ YAML to JSON変換に失敗"
+          exit 1
+        fi
+      else
+        # JSONの場合はそのまま使用
+        SPEC_JSON=$(echo "$SPEC_CONTENT" | jq -c '.')
+      fi
+      
+      # 新しいVersionを作成（specを含む）
+      CREATE_VERSION_PAYLOAD=$(jq -n \
+        --arg version "$SPEC_VERSION" \
+        --arg content "$SPEC_JSON" \
+        '{
+          version: $version,
+          spec: {
+            content: $content
+          }
+        }')
+      
+      echo "🔨 Versionを作成中..."
+      CREATE_VERSION_RESPONSE=$(curl -s -w "\n%{http_code}" \
+        -X POST \
+        "${KONNECT_API_ENDPOINT}/v3/apis/${API_PRODUCT_ID}/versions" \
+        -H "Authorization: Bearer ${KONNECT_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "$CREATE_VERSION_PAYLOAD")
+      
+      CREATE_VERSION_STATUS=$(echo "$CREATE_VERSION_RESPONSE" | tail -n 1)
+      CREATE_VERSION_BODY=$(echo "$CREATE_VERSION_RESPONSE" | sed '$d')
+      
+      if [ "$CREATE_VERSION_STATUS" -ge 200 ] && [ "$CREATE_VERSION_STATUS" -lt 300 ]; then
+        NEW_VERSION_ID=$(echo "$CREATE_VERSION_BODY" | jq -r '.id')
+        echo "✅ Version作成成功 (HTTP $CREATE_VERSION_STATUS)"
+        echo "🆔 新しいVersion ID: $NEW_VERSION_ID"
+        VERSION_ID="$NEW_VERSION_ID"
+        
+        # Version作成時に仕様書も含まれているため、Step 3をスキップ
+        echo ""
+        echo "✅ API仕様書の登録と公開が完了しました（Version作成時に含まれています）"
+        
+        # 最終メッセージを表示してスクリプト終了
+        echo ""
+        echo "=============================="
+        echo "✅ API Spec公開処理が完了しました"
+        echo "=============================="
+        echo ""
+        echo "📌 次のステップ:"
+        echo "   1. Konnect UI (https://cloud.konghq.com/) にアクセス"
+        echo "   2. APIs → 対象のAPI → Versions"
+        echo "   3. Specificationsタブで登録されたSpecを確認"
+        echo "   4. Dev Portalで公開されたAPI仕様を確認"
+        echo ""
+        echo "💡 今後の使用方法:"
+        echo "   - 同じAPIに更新: 同じ環境変数で再実行"
+        echo "   - 新しいAPI作成: export API_PRODUCT_ID='new-api-name'"
+        echo "   - 自動Version選択: AUTO_SELECT_VERSION=true"
+        echo ""
+        exit 0
+      else
+        echo "❌ Version作成失敗 (HTTP $CREATE_VERSION_STATUS)"
+        echo "📋 エラー詳細:"
+        echo "$CREATE_VERSION_BODY" | jq '.' || echo "$CREATE_VERSION_BODY"
+        exit 1
+      fi
     fi
   fi
 fi
